@@ -1,0 +1,5 @@
+PyQt6==6.7.1
+deep-translator==1.11.4
+gtts==2.3.2
+eng-to-ipa==0.0.2
+requests==2.31.0
