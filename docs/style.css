@@ -234,18 +234,15 @@ input[type="checkbox"]:checked + .toggle::after {
     cursor: pointer;
 }
 
-.swipe-delete span {
-    color: #fff;
-    font-size: 22px;
-    font-weight: bold;
+.swipe-delete svg {
     transition: transform 0.15s ease;
 }
 
-.swipe-delete:hover span {
+.swipe-delete:hover svg {
     transform: scale(1.15);
 }
 
-.swipe-delete:active span {
+.swipe-delete:active svg {
     transform: scale(0.95);
 }
 

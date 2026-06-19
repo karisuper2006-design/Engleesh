@@ -11,8 +11,8 @@ import tempfile
 import threading
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal, QRectF
-from PyQt6.QtGui import QFont, QPainter, QColor, QPainterPath
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QRectF, QSize
+from PyQt6.QtGui import QFont, QPainter, QColor, QPainterPath, QPixmap, QIcon, QPen
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLineEdit, QPushButton, QLabel, QTabWidget,
@@ -182,6 +182,44 @@ def play_word(word_en):
     threading.Thread(target=_play, daemon=True).start()
 
 
+def _make_play_icon(size=18):
+    px = QPixmap(size, size)
+    px.fill(Qt.GlobalColor.transparent)
+    p = QPainter(px)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setPen(Qt.PenStyle.NoPen)
+    p.setBrush(QColor("#555"))
+    path = QPainterPath()
+    path.moveTo(3, 2)
+    path.lineTo(3, size - 2)
+    path.lineTo(8, size - 4)
+    path.lineTo(8, 4)
+    path.closeSubpath()
+    p.drawPath(path)
+    for r, cx in [(3, 11), (4, 14)]:
+        p.drawEllipse(QRectF(cx, size / 2 - r, r * 2, r * 2))
+    p.end()
+    return QIcon(px)
+
+
+def _make_del_icon(size=22):
+    px = QPixmap(size, size)
+    px.fill(Qt.GlobalColor.transparent)
+    p = QPainter(px)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    p.setPen(QPen(QColor("#fff"), 2, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
+    p.setBrush(Qt.BrushStyle.NoBrush)
+    m = 4
+    p.drawLine(m + 2, m, size - m - 2, m)
+    p.drawLine(m + 5, m + 2, m + 4, size - m)
+    p.drawLine(size - m - 5, m + 2, size - m - 4, size - m)
+    p.drawLine(m + 1, m + 2, size - m - 1, m + 2)
+    cx = size / 2
+    p.drawLine(cx, m + 5, cx, size - m - 2)
+    p.end()
+    return QIcon(px)
+
+
 # ─── Lookup thread ──────────────────────────────────────────────────────────
 
 class LookupThread(QThread):
@@ -327,10 +365,12 @@ class WordRow(QFrame):
             self._ru_label.setStyleSheet("color: #333;")
         layout.addWidget(self._ru_label)
 
-        btn_play = QPushButton("🔊")
+        btn_play = QPushButton()
+        btn_play.setIcon(_make_play_icon())
         btn_play.setFixedSize(34, 30)
+        btn_play.setIconSize(btn_play.size() - QSize(4, 4))
         btn_play.setStyleSheet(
-            "QPushButton { border: none; font-size: 16px; border-radius: 6px; }"
+            "QPushButton { border: none; border-radius: 6px; }"
             "QPushButton:hover { background: #e8f0fe; }")
         btn_play.clicked.connect(lambda: on_play(en))
         layout.addWidget(btn_play)
@@ -345,10 +385,12 @@ class WordRow(QFrame):
         btn_star.clicked.connect(lambda: on_toggle(word["id"], word["is_mistake"]))
         layout.addWidget(btn_star)
 
-        self._btn_del = QPushButton("🗑")
+        self._btn_del = QPushButton()
+        self._btn_del.setIcon(_make_del_icon())
         self._btn_del.setFixedSize(50, 36)
+        self._btn_del.setIconSize(self._btn_del.size() - QSize(4, 4))
         self._btn_del.setStyleSheet(
-            "QPushButton { background: #e74c3c; color: white; border: none; border-radius: 18px; font-size: 16px; }"
+            "QPushButton { background: #e74c3c; border: none; border-radius: 18px; }"
             "QPushButton:hover { background: #c0392b; }")
         self._btn_del.clicked.connect(lambda: on_delete(word["id"]))
         self._btn_del.setParent(self)
