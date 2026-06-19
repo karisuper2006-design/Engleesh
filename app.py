@@ -11,11 +11,11 @@ import tempfile
 import threading
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import Qt, QThread, pyqtSignal, QRectF
+from PyQt6.QtGui import QFont, QPainter, QColor, QPainterPath
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLineEdit, QPushButton, QLabel, QTabWidget, QCheckBox,
+    QLineEdit, QPushButton, QLabel, QTabWidget,
     QScrollArea, QFrame,
 )
 
@@ -216,6 +216,57 @@ class HiddenLabel(QLabel):
             self.setStyleSheet("color: #999; font-style: italic;")
 
 
+class ToggleSwitch(QWidget):
+    toggled = pyqtSignal(bool)
+
+    def __init__(self, label="", parent=None):
+        super().__init__(parent)
+        self._checked = False
+        self._label_text = label
+        self.setFixedHeight(30)
+        self.setFixedWidth(160)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def isChecked(self):
+        return self._checked
+
+    def setChecked(self, val):
+        if self._checked != val:
+            self._checked = val
+            self.update()
+
+    def mousePressEvent(self, event):
+        self._checked = not self._checked
+        self.update()
+        self.toggled.emit(self._checked)
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        w, h = self.width(), self.height()
+        track_w, track_h = 42, 22
+        knob_r = 9
+        track_y = (h - track_h) / 2
+        track_x = 0
+
+        if self._checked:
+            p.setBrush(QColor("#4caf50"))
+        else:
+            p.setBrush(QColor("#ccc"))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.drawRoundedRect(QRectF(track_x, track_y, track_w, track_h), track_h / 2, track_h / 2)
+
+        knob_x = track_x + track_w - knob_r * 2 - 3 if self._checked else track_x + 3
+        knob_y = h / 2
+        p.setBrush(QColor("#fff"))
+        p.drawEllipse(QRectF(knob_x, knob_y - knob_r, knob_r * 2, knob_r * 2))
+
+        p.setPen(QColor("#555"))
+        p.setFont(QFont("Helvetica Neue", 12))
+        p.drawText(QRectF(track_w + 8, 0, w - track_w - 8, h), Qt.AlignmentFlag.AlignVCenter, self._label_text)
+        p.end()
+
+
 # ─── Word row ────────────────────────────────────────────────────────────────
 
 class WordRow(QFrame):
@@ -330,9 +381,6 @@ QTabBar::tab:selected {
 }
 QTabBar::tab:hover { background: #dde1e7; }
 
-QCheckBox { color: #555; spacing: 6px; font-size: 12px; }
-QCheckBox::indicator { width: 14px; height: 14px; }
-
 QScrollArea { border: none; background: #f5f6fa; }
 QScrollBar:vertical {
     background: #f5f6fa; width: 8px; margin: 0;
@@ -409,10 +457,10 @@ class DictionaryApp(QMainWindow):
         lbl = QLabel("Self-check:")
         lbl.setStyleSheet("color: #666; font-weight: bold; font-size: 12px;")
         mode_layout.addWidget(lbl)
-        self._cb_hide_ru = QCheckBox("Скрыть перевод")
+        self._cb_hide_ru = ToggleSwitch("Скрыть перевод")
         self._cb_hide_ru.toggled.connect(self._on_toggle_ru)
         mode_layout.addWidget(self._cb_hide_ru)
-        self._cb_hide_en = QCheckBox("Скрыть английский")
+        self._cb_hide_en = ToggleSwitch("Скрыть английский")
         self._cb_hide_en.toggled.connect(self._on_toggle_en)
         mode_layout.addWidget(self._cb_hide_en)
         mode_layout.addStretch()
