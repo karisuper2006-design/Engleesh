@@ -79,7 +79,7 @@ header h1 {
     display: flex;
     align-items: center;
     gap: 16px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 
 .mode-bar label {
@@ -90,6 +90,7 @@ header h1 {
     align-items: center;
     gap: 8px;
     user-select: none;
+    white-space: nowrap;
 }
 
 .mode-bar label input[type="checkbox"] {
@@ -366,6 +367,25 @@ input[type="checkbox"]:checked + .toggle::after {
 .empty-msg.hidden { display: none; }
 
 @media (max-width: 640px) {
+    .mode-bar {
+        gap: 10px;
+        padding: 8px 10px;
+    }
+    .mode-bar label {
+        font-size: 11px;
+        gap: 5px;
+    }
+    .toggle {
+        width: 36px;
+        height: 20px;
+    }
+    .toggle::after {
+        width: 16px;
+        height: 16px;
+    }
+    input[type="checkbox"]:checked + .toggle::after {
+        transform: translateX(16px);
+    }
     .col-tr { display: none; }
     .word-row .tr { display: none; }
     .col-en { width: 120px; }
