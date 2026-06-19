@@ -15,8 +15,8 @@ from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QLineEdit, QPushButton, QLabel, QTabWidget, QRadioButton,
-    QButtonGroup, QScrollArea, QFrame,
+    QLineEdit, QPushButton, QLabel, QTabWidget, QCheckBox,
+    QScrollArea, QFrame,
 )
 
 from deep_translator import GoogleTranslator
@@ -219,7 +219,7 @@ class HiddenLabel(QLabel):
 # ─── Word row ────────────────────────────────────────────────────────────────
 
 class WordRow(QFrame):
-    def __init__(self, word, hide_mode, on_play, on_toggle, on_delete, parent=None):
+    def __init__(self, word, hide_ru, hide_en, on_play, on_toggle, on_delete, parent=None):
         super().__init__(parent)
         self.word = word
         self.setFrameShape(QFrame.Shape.NoFrame)
@@ -238,7 +238,7 @@ class WordRow(QFrame):
         ru = word["word_ru"]
 
         # English
-        if hide_mode == "hide_en":
+        if hide_en:
             layout.addWidget(HiddenLabel(en))
         else:
             lbl = QLabel(en)
@@ -247,7 +247,7 @@ class WordRow(QFrame):
             layout.addWidget(lbl)
 
         # Transcription
-        if hide_mode == "hide_en":
+        if hide_en:
             layout.addWidget(HiddenLabel(tr))
         else:
             lbl = QLabel(tr)
@@ -258,7 +258,7 @@ class WordRow(QFrame):
         layout.addStretch(1)
 
         # Russian
-        if hide_mode == "hide_ru":
+        if hide_ru:
             layout.addWidget(HiddenLabel(ru))
         else:
             lbl = QLabel(ru)
@@ -330,8 +330,8 @@ QTabBar::tab:selected {
 }
 QTabBar::tab:hover { background: #dde1e7; }
 
-QRadioButton { color: #555; spacing: 6px; font-size: 12px; }
-QRadioButton::indicator { width: 14px; height: 14px; }
+QCheckBox { color: #555; spacing: 6px; font-size: 12px; }
+QCheckBox::indicator { width: 14px; height: 14px; }
 
 QScrollArea { border: none; background: #f5f6fa; }
 QScrollBar:vertical {
@@ -352,7 +352,8 @@ class DictionaryApp(QMainWindow):
     def __init__(self):
         super().__init__()
         self.db = Database()
-        self.hide_mode = "show_all"
+        self.hide_ru = False
+        self.hide_en = False
         self._lookup_thread = None
 
         self.setWindowTitle("Engleesh — Personal Dictionary")
@@ -408,15 +409,12 @@ class DictionaryApp(QMainWindow):
         lbl = QLabel("Self-check:")
         lbl.setStyleSheet("color: #666; font-weight: bold; font-size: 12px;")
         mode_layout.addWidget(lbl)
-        self._mode_group = QButtonGroup(self)
-        for i, (val, txt) in enumerate([
-            ("show_all", "Show all"), ("hide_ru", "Hide translation"), ("hide_en", "Hide original")
-        ]):
-            rb = QRadioButton(txt)
-            rb.setChecked(val == "show_all")
-            rb.toggled.connect(lambda checked, v=val: self._on_mode(v) if checked else None)
-            self._mode_group.addButton(rb, i)
-            mode_layout.addWidget(rb)
+        self._cb_hide_ru = QCheckBox("Скрыть перевод")
+        self._cb_hide_ru.toggled.connect(self._on_toggle_ru)
+        mode_layout.addWidget(self._cb_hide_ru)
+        self._cb_hide_en = QCheckBox("Скрыть английский")
+        self._cb_hide_en.toggled.connect(self._on_toggle_en)
+        mode_layout.addWidget(self._cb_hide_en)
         mode_layout.addStretch()
         root.addWidget(mode_frame)
 
@@ -464,8 +462,12 @@ class DictionaryApp(QMainWindow):
 
     # ── Helpers ──────────────────────────────────────────────────────────
 
-    def _on_mode(self, mode):
-        self.hide_mode = mode
+    def _on_toggle_ru(self, checked):
+        self.hide_ru = checked
+        self._load_words()
+
+    def _on_toggle_en(self, checked):
+        self.hide_en = checked
         self._load_words()
 
     def _clear_layout(self, layout):
@@ -489,10 +491,10 @@ class DictionaryApp(QMainWindow):
 
         for w in words:
             self.word_layout.addWidget(
-                WordRow(w, self.hide_mode, play_word, self._toggle_mistake, self._delete_word))
+                WordRow(w, self.hide_ru, self.hide_en, play_word, self._toggle_mistake, self._delete_word))
             if w["is_mistake"]:
                 self.mist_layout.addWidget(
-                    WordRow(w, self.hide_mode, play_word, self._toggle_mistake, self._delete_word))
+                    WordRow(w, self.hide_ru, self.hide_en, play_word, self._toggle_mistake, self._delete_word))
 
         if not any(w["is_mistake"] for w in words):
             lbl = QLabel("No mistakes yet. Mark words with ☆ to track them here.")

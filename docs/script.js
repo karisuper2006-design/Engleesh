@@ -1,6 +1,7 @@
 const STORAGE_KEY = "engleesh_words";
 let words = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-let hideMode = "show_all";
+let hideRu = false;
+let hideEn = false;
 let currentTab = "all";
 
 // ─── Language detection ─────────────────────────────────────────────────────
@@ -122,8 +123,9 @@ function deleteWord(id) {
     s.style.color = "#888";
 }
 
-function setMode(mode) {
-    hideMode = mode;
+function setMode(which, checked) {
+    if (which === 'ru') hideRu = checked;
+    if (which === 'en') hideEn = checked;
     render();
 }
 
@@ -160,15 +162,15 @@ function render() {
         const row = document.createElement("div");
         row.className = "word-row";
 
-        const enText = hideMode === "hide_en"
+        const enText = hideEn
             ? `<span class="hidden-cell" onclick="reveal(this,'${esc(w.word_en)}')">[ … ]</span>`
             : esc(w.word_en);
 
-        const trText = hideMode === "hide_en"
+        const trText = hideEn
             ? `<span class="hidden-cell" onclick="reveal(this,'${esc(w.transcription || "—")}')">[ … ]</span>`
             : esc(w.transcription || "—");
 
-        const ruText = hideMode === "hide_ru"
+        const ruText = hideRu
             ? `<span class="hidden-cell" onclick="reveal(this,'${esc(w.word_ru)}')">[ … ]</span>`
             : esc(w.word_ru);
 

@@ -22,9 +22,8 @@
 
         <div class="mode-bar">
             <span class="mode-label">Self-check:</span>
-            <label><input type="radio" name="mode" value="show_all" checked onchange="setMode(this.value)"> Show all</label>
-            <label><input type="radio" name="mode" value="hide_ru" onchange="setMode(this.value)"> Hide translation</label>
-            <label><input type="radio" name="mode" value="hide_en" onchange="setMode(this.value)"> Hide original</label>
+            <label><input type="checkbox" onchange="setMode('ru', this.checked)"> Скрыть перевод</label>
+            <label><input type="checkbox" onchange="setMode('en', this.checked)"> Скрыть английский</label>
         </div>
 
         <div class="tabs">
