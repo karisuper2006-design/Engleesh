@@ -458,6 +458,8 @@ class WordRow(QFrame):
         anim.setEasingCurve(QEasingCurve.Type.OutCubic)
         anim.start()
         self._slide_anim = anim
+        if target_x == 0:
+            self._btn_del.hide()
 
     def _check_click(self, pos):
         if self._selected:
@@ -619,9 +621,6 @@ class DictionaryApp(QMainWindow):
         )
         mode_layout = QHBoxLayout(mode_frame)
         mode_layout.setContentsMargins(12, 6, 12, 6)
-        lbl = QLabel("Проверка:")
-        lbl.setStyleSheet("color: #666; font-weight: bold; font-size: 12px;")
-        mode_layout.addWidget(lbl)
         self._cb_hide_ru = ToggleSwitch("Скрыть перевод")
         self._cb_hide_ru.toggled.connect(self._on_toggle_ru)
         mode_layout.addWidget(self._cb_hide_ru)

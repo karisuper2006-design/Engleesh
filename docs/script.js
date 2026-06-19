@@ -302,9 +302,11 @@ function initSwipe(wrapper, row, id) {
         if (dx < -SWIPE_THRESHOLD / 2) {
             row.style.transform = `translateX(-80px)`;
             row.classList.add("swiped");
+            wrapper.classList.add("swipe-open");
         } else {
             row.style.transform = "translateX(0)";
             row.classList.remove("swiped");
+            wrapper.classList.remove("swipe-open");
         }
     };
 
@@ -345,6 +347,7 @@ document.addEventListener("click", (e) => {
             r.style.transition = "transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)";
             r.style.transform = "translateX(0)";
             r.classList.remove("swiped");
+            r.parentElement.classList.remove("swipe-open");
         }
     });
 });

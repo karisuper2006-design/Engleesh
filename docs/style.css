@@ -82,12 +82,6 @@ header h1 {
     flex-wrap: wrap;
 }
 
-.mode-label {
-    font-weight: 600;
-    color: #666;
-    font-size: 13px;
-}
-
 .mode-bar label {
     font-size: 13px;
     color: #555;
@@ -230,8 +224,14 @@ input[type="checkbox"]:checked + .toggle::after {
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1;
+    z-index: 0;
     cursor: pointer;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.word-row-wrapper.swipe-open .swipe-delete {
+    transform: translateX(0);
 }
 
 .swipe-delete svg {
@@ -347,6 +347,11 @@ input[type="checkbox"]:checked + .toggle::after {
 .empty-msg.hidden { display: none; }
 
 @media (max-width: 640px) {
+    .mode-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
     .col-tr { display: none; }
     .word-row .tr { display: none; }
     .col-en { width: 120px; }
