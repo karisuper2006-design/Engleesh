@@ -280,13 +280,20 @@ class WordRow(QFrame):
         super().__init__(parent)
         self.word = word
         self.on_edit = on_edit
+        self.on_delete = on_delete
         self._selected = False
+        self._swiped = False
+        self._drag_start_x = 0
+        self._dragging = False
         self.setFrameShape(QFrame.Shape.NoFrame)
         self._update_style()
         self.setFixedHeight(44)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setMouseTracking(True)
 
-        layout = QHBoxLayout(self)
+        self._content = QFrame(self)
+        self._content.setStyleSheet("background: transparent;")
+        layout = QHBoxLayout(self._content)
         layout.setContentsMargins(14, 4, 14, 4)
         layout.setSpacing(8)
 
@@ -294,7 +301,6 @@ class WordRow(QFrame):
         tr = word["transcription"] or "—"
         ru = word["word_ru"]
 
-        # English
         if hide_en:
             self._en_label = HiddenLabel(en)
         else:
@@ -303,7 +309,6 @@ class WordRow(QFrame):
             self._en_label.setStyleSheet("color: #1a1a2e;")
         layout.addWidget(self._en_label)
 
-        # Transcription
         if hide_en:
             self._tr_label = HiddenLabel(tr)
         else:
@@ -314,7 +319,6 @@ class WordRow(QFrame):
 
         layout.addStretch(1)
 
-        # Russian
         if hide_ru:
             self._ru_label = HiddenLabel(ru)
         else:
@@ -323,37 +327,34 @@ class WordRow(QFrame):
             self._ru_label.setStyleSheet("color: #333;")
         layout.addWidget(self._ru_label)
 
-        # Play button
         btn_play = QPushButton("🔊")
         btn_play.setFixedSize(34, 30)
         btn_play.setStyleSheet(
             "QPushButton { border: none; font-size: 16px; border-radius: 6px; }"
-            "QPushButton:hover { background: #e8f0fe; }"
-        )
+            "QPushButton:hover { background: #e8f0fe; }")
         btn_play.clicked.connect(lambda: on_play(en))
         layout.addWidget(btn_play)
 
-        # Star button
         star = "★" if word["is_mistake"] else "☆"
         color = "#e6a817" if word["is_mistake"] else "#bbb"
         btn_star = QPushButton(star)
         btn_star.setFixedSize(30, 30)
         btn_star.setStyleSheet(
             f"QPushButton {{ border: none; font-size: 18px; color: {color}; border-radius: 6px; }}"
-            "QPushButton:hover { background: #fff3cd; }"
-        )
+            "QPushButton:hover { background: #fff3cd; }")
         btn_star.clicked.connect(lambda: on_toggle(word["id"], word["is_mistake"]))
         layout.addWidget(btn_star)
 
-        # Delete button
-        btn_del = QPushButton("✕")
-        btn_del.setFixedSize(28, 28)
-        btn_del.setStyleSheet(
-            "QPushButton { border: none; font-size: 14px; color: #bbb; border-radius: 6px; }"
-            "QPushButton:hover { color: #e74c3c; background: #fdecea; }"
-        )
-        btn_del.clicked.connect(lambda: on_delete(word["id"]))
-        layout.addWidget(btn_del)
+        self._btn_del = QPushButton("🗑")
+        self._btn_del.setFixedSize(50, 36)
+        self._btn_del.setStyleSheet(
+            "QPushButton { background: #e74c3c; color: white; border: none; border-radius: 18px; font-size: 16px; }"
+            "QPushButton:hover { background: #c0392b; }")
+        self._btn_del.clicked.connect(lambda: on_delete(word["id"]))
+        self._btn_del.setParent(self)
+        self._btn_del.hide()
+
+        self._content.installEventFilter(self)
 
     def _update_style(self):
         if self._selected:
@@ -364,19 +365,74 @@ class WordRow(QFrame):
                 "WordRow { background: #ffffff; border: 2px solid transparent; border-radius: 8px; }"
                 "WordRow:hover { background: #f0f4ff; border-color: #c0d0f0; }")
 
-    def mousePressEvent(self, event):
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        h = self.height()
+        self._btn_del.setFixedSize(50, h - 10)
+        self._btn_del.move(self.width() - 60, 5)
+        self._content.setGeometry(0, 0, self.width(), h)
+
+    def eventFilter(self, obj, event):
+        if obj == self._content:
+            if event.type() == event.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
+                self._drag_start_x = event.position().x()
+                self._dragging = True
+                return False
+            elif event.type() == event.Type.MouseMove and self._dragging:
+                dx = event.position().x() - self._drag_start_x
+                if self._swiped:
+                    new_x = -80 + dx
+                else:
+                    new_x = min(0, dx)
+                new_x = max(-80, min(0, new_x))
+                self._content.move(new_x, 0)
+                return True
+            elif event.type() == event.Type.MouseButtonRelease and self._dragging:
+                self._dragging = False
+                dx = event.position().x() - self._drag_start_x
+                if self._swiped:
+                    final = -80 if dx < 40 else 0
+                else:
+                    final = -80 if dx < -40 else 0
+                self._swiped = (final == -80)
+                self._animate_slide(final)
+                if not self._swiped:
+                    self._check_click(event.position())
+                if self._swiped:
+                    self._btn_del.show()
+                    self._btn_del.raise_()
+                return True
+            elif event.type() == event.Type.MouseButtonPress and event.button() == Qt.MouseButton.RightButton:
+                return False
+        return super().eventFilter(obj, event)
+
+    def _animate_slide(self, target_x):
+        from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
+        anim = QPropertyAnimation(self._content, b"pos")
+        anim.setDuration(200)
+        anim.setStartValue(self._content.pos())
+        from PyQt6.QtCore import QPoint
+        anim.setEndValue(QPoint(target_x, 0))
+        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        anim.start()
+        self._slide_anim = anim
+
+    def _check_click(self, pos):
         if self._selected:
-            pos = event.position()
-            if hasattr(self._en_label, 'text') and not isinstance(self._en_label, HiddenLabel):
-                if self._en_label.geometry().contains(self.mapFromParent(pos.toPoint() if hasattr(pos, 'toPoint') else pos)):
-                    self._start_edit(self._en_label, "en")
-                    return
-            if hasattr(self._ru_label, 'text') and not isinstance(self._ru_label, HiddenLabel):
-                if self._ru_label.geometry().contains(self.mapFromParent(pos.toPoint() if hasattr(pos, 'toPoint') else pos)):
-                    self._start_edit(self._ru_label, "ru")
-                    return
+            en_pos = self._en_label.mapFrom(self._content, pos.toPoint())
+            if not isinstance(self._en_label, HiddenLabel) and self._en_label.geometry().contains(en_pos):
+                self._start_edit(self._en_label, "en")
+                return
+            ru_pos = self._ru_label.mapFrom(self._content, pos.toPoint())
+            if not isinstance(self._ru_label, HiddenLabel) and self._ru_label.geometry().contains(ru_pos):
+                self._start_edit(self._ru_label, "ru")
+                return
         self._selected = not self._selected
         self._update_style()
+
+    def mousePressEvent(self, event):
+        if self._swiped and event.button() == Qt.MouseButton.LeftButton:
+            return
         super().mousePressEvent(event)
 
     def _start_edit(self, label, field):
@@ -388,11 +444,11 @@ class WordRow(QFrame):
         edit.setMinimumWidth(label.width())
         edit.editingFinished.connect(lambda: self._finish_edit(edit, label, field))
         edit.returnPressed.connect(lambda: edit.clearFocus())
-        layout = self.layout()
-        idx = layout.indexOf(label)
-        layout.removeWidget(label)
+        lay = self._content.layout()
+        idx = lay.indexOf(label)
+        lay.removeWidget(label)
         label.hide()
-        layout.insertWidget(idx, edit)
+        lay.insertWidget(idx, edit)
         edit.setFocus()
         edit.selectAll()
 
@@ -407,9 +463,9 @@ class WordRow(QFrame):
             if field == "en":
                 self.word["transcription"] = get_transcription(new_val.lower()) or self.word.get("transcription", "")
             self.on_edit(self.word)
-        layout = self.layout()
-        idx = layout.indexOf(edit)
-        layout.removeWidget(edit)
+        lay = self._content.layout()
+        idx = lay.indexOf(edit)
+        lay.removeWidget(edit)
         edit.deleteLater()
         if field == "en":
             label.setText(self.word["word_en"])
@@ -417,7 +473,7 @@ class WordRow(QFrame):
                 self._tr_label.setText(self.word.get("transcription", "—") or "—")
         else:
             label.setText(self.word["word_ru"])
-        layout.insertWidget(idx, label)
+        lay.insertWidget(idx, label)
         label.show()
 
 
@@ -584,6 +640,24 @@ class DictionaryApp(QMainWindow):
     def _on_toggle_en(self, checked):
         self.hide_en = checked
         self._load_words()
+
+    def mousePressEvent(self, event):
+        child = self.childAt(event.pos())
+        while child:
+            if isinstance(child, WordRow):
+                return super().mousePressEvent(event)
+            child = child.parent()
+        for i in range(self.word_layout.count()):
+            w = self.word_layout.itemAt(i).widget()
+            if isinstance(w, WordRow) and w._selected:
+                w._selected = False
+                w._update_style()
+        for i in range(self.mist_layout.count()):
+            w = self.mist_layout.itemAt(i).widget()
+            if isinstance(w, WordRow) and w._selected:
+                w._selected = False
+                w._update_style()
+        super().mousePressEvent(event)
 
     def _clear_layout(self, layout):
         while layout.count():

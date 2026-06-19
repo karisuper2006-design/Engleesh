@@ -205,6 +205,9 @@ function render() {
     empty.classList.add("hidden");
 
     for (const w of filtered) {
+        const wrapper = document.createElement("div");
+        wrapper.className = "word-row-wrapper";
+
         const row = document.createElement("div");
         row.className = "word-row" + (selectedRowId === w.id ? " selected" : "");
         row.dataset.id = w.id;
@@ -238,14 +241,113 @@ function render() {
             <span class="actions">
                 <button onclick="event.stopPropagation(); playWord('${esc(w.word_en)}')" title="Озвучка">🔊</button>
                 <button class="${starClass}" onclick="event.stopPropagation(); toggleMistake(${w.id})" title="Отметить ошибку">${starText}</button>
-                <button class="btn-del" onclick="event.stopPropagation(); deleteWord(${w.id})" title="Удалить">✕</button>
             </span>
         `;
 
-        row.addEventListener("click", () => selectRow(w.id));
-        list.appendChild(row);
+        row.addEventListener("click", (e) => {
+            if (!row.classList.contains("swiped")) selectRow(w.id);
+        });
+
+        initSwipe(wrapper, row, w.id);
+
+        const del = document.createElement("div");
+        del.className = "swipe-delete";
+        del.innerHTML = "<span>🗑</span>";
+        del.addEventListener("click", (e) => {
+            e.stopPropagation();
+            wrapper.style.transition = "opacity 0.3s ease, max-height 0.3s ease";
+            wrapper.style.opacity = "0";
+            wrapper.style.maxHeight = "0";
+            wrapper.style.marginBottom = "0";
+            wrapper.style.overflow = "hidden";
+            setTimeout(() => deleteWord(w.id), 300);
+        });
+
+        wrapper.appendChild(row);
+        wrapper.appendChild(del);
+        list.appendChild(wrapper);
     }
 }
+
+// ─── Swipe ───────────────────────────────────────────────────────────────────
+
+const SWIPE_THRESHOLD = 70;
+
+function initSwipe(wrapper, row, id) {
+    let startX = 0, startY = 0, dx = 0, swiping = false, locked = false;
+
+    const onStart = (x, y) => {
+        if (selectedRowId === id && row.querySelector(".inline-input")) return;
+        startX = x; startY = y; dx = 0; swiping = false; locked = false;
+    };
+
+    const onMove = (x, y) => {
+        if (locked) return;
+        const diffX = x - startX;
+        const diffY = y - startY;
+        if (!swiping && Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 5) {
+            swiping = true;
+            row.style.transition = "none";
+        }
+        if (!swiping) return;
+        dx = Math.min(0, diffX);
+        if (dx < -SWIPE_THRESHOLD) dx = -SWIPE_THRESHOLD;
+        row.style.transform = `translateX(${dx}px)`;
+    };
+
+    const onEnd = () => {
+        if (!swiping) return;
+        locked = true;
+        row.style.transition = "transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)";
+        if (dx < -SWIPE_THRESHOLD / 2) {
+            row.style.transform = `translateX(-80px)`;
+            row.classList.add("swiped");
+        } else {
+            row.style.transform = "translateX(0)";
+            row.classList.remove("swiped");
+        }
+    };
+
+    row.addEventListener("touchstart", e => {
+        const t = e.touches[0];
+        onStart(t.clientX, t.clientY);
+    }, { passive: true });
+
+    row.addEventListener("touchmove", e => {
+        const t = e.touches[0];
+        onMove(t.clientX, t.clientY);
+        if (swiping) e.preventDefault();
+    }, { passive: false });
+
+    row.addEventListener("touchend", onEnd);
+
+    row.addEventListener("mousedown", e => {
+        if (e.button !== 0) return;
+        onStart(e.clientX, e.clientY);
+        const moveHandler = (ev) => onMove(ev.clientX, ev.clientY);
+        const upHandler = () => {
+            onEnd();
+            document.removeEventListener("mousemove", moveHandler);
+            document.removeEventListener("mouseup", upHandler);
+        };
+        document.addEventListener("mousemove", moveHandler);
+        document.addEventListener("mouseup", upHandler);
+    });
+}
+
+document.addEventListener("click", (e) => {
+    if (selectedRowId !== null && !e.target.closest(".word-row")) {
+        selectedRowId = null;
+        render();
+    }
+    document.querySelectorAll(".word-row.swiped").forEach(r => {
+        if (!e.target.closest(".word-row-wrapper") || !r.parentElement.contains(e.target)) {
+            r.style.transition = "transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94)";
+            r.style.transform = "translateX(0)";
+            r.classList.remove("swiped");
+        }
+    });
+});
 
 function reveal(el, text) {
     if (el.classList.contains("revealed")) {
