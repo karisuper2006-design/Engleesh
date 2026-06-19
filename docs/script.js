@@ -123,6 +123,30 @@ function deleteWord(id) {
     s.style.color = "#888";
 }
 
+async function editWord(id) {
+    const w = words.find(w => w.id === id);
+    if (!w) return;
+
+    const newEn = prompt("English:", w.word_en);
+    if (newEn === null) return;
+    const newRu = prompt("Russian:", w.word_ru);
+    if (newRu === null) return;
+
+    const oldEn = w.word_en;
+    w.word_en = newEn.trim().toLowerCase();
+    w.word_ru = newRu.trim();
+
+    if (w.word_en !== oldEn) {
+        w.transcription = await getTranscription(w.word_en);
+    }
+
+    save();
+    render();
+    const s = document.getElementById("status");
+    s.textContent = `Updated: ${w.word_en} — ${w.word_ru}`;
+    s.style.color = "#27ae60";
+}
+
 function setMode(which, checked) {
     if (which === 'ru') hideRu = checked;
     if (which === 'en') hideEn = checked;
@@ -183,6 +207,7 @@ function render() {
             <span class="ru">${ruText}</span>
             <span class="actions">
                 <button onclick="playWord('${esc(w.word_en)}')" title="Play">🔊</button>
+                <button onclick="editWord(${w.id})" title="Edit">✏️</button>
                 <button class="${starClass}" onclick="toggleMistake(${w.id})" title="Toggle mistake">${starText}</button>
                 <button class="btn-del" onclick="deleteWord(${w.id})" title="Delete">✕</button>
             </span>

@@ -16,7 +16,7 @@ from PyQt6.QtGui import QFont, QPainter, QColor, QPainterPath
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLineEdit, QPushButton, QLabel, QTabWidget,
-    QScrollArea, QFrame,
+    QScrollArea, QFrame, QDialog, QDialogButtonBox, QFormLayout,
 )
 
 from deep_translator import GoogleTranslator
@@ -82,6 +82,12 @@ class Database:
 
     def delete_word(self, word_id):
         self.conn.execute("DELETE FROM words WHERE id=?", (word_id,))
+        self.conn.commit()
+
+    def update_word(self, word_id, word_en, word_ru, transcription):
+        self.conn.execute(
+            "UPDATE words SET word_en=?, word_ru=?, transcription=? WHERE id=?",
+            (word_en.strip().lower(), word_ru.strip(), transcription, word_id))
         self.conn.commit()
 
     def close(self):
@@ -267,10 +273,34 @@ class ToggleSwitch(QWidget):
         p.end()
 
 
+class EditDialog(QDialog):
+    def __init__(self, word, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit word")
+        self.setMinimumWidth(360)
+        form = QFormLayout(self)
+
+        self.en_edit = QLineEdit(word["word_en"])
+        self.ru_edit = QLineEdit(word["word_ru"])
+        self.tr_edit = QLineEdit(word.get("transcription", ""))
+
+        form.addRow("English:", self.en_edit)
+        form.addRow("Transcription:", self.tr_edit)
+        form.addRow("Russian:", self.ru_edit)
+
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        btns.accepted.connect(self.accept)
+        btns.rejected.connect(self.reject)
+        form.addRow(btns)
+
+    def get_data(self):
+        return self.en_edit.text(), self.ru_edit.text(), self.tr_edit.text()
+
+
 # ─── Word row ────────────────────────────────────────────────────────────────
 
 class WordRow(QFrame):
-    def __init__(self, word, hide_ru, hide_en, on_play, on_toggle, on_delete, parent=None):
+    def __init__(self, word, hide_ru, hide_en, on_play, on_toggle, on_delete, on_edit, parent=None):
         super().__init__(parent)
         self.word = word
         self.setFrameShape(QFrame.Shape.NoFrame)
@@ -326,6 +356,16 @@ class WordRow(QFrame):
         )
         btn_play.clicked.connect(lambda: on_play(en))
         layout.addWidget(btn_play)
+
+        # Edit button
+        btn_edit = QPushButton("✏️")
+        btn_edit.setFixedSize(30, 30)
+        btn_edit.setStyleSheet(
+            "QPushButton { border: none; font-size: 14px; border-radius: 6px; }"
+            "QPushButton:hover { background: #e8f0fe; }"
+        )
+        btn_edit.clicked.connect(lambda: on_edit(word))
+        layout.addWidget(btn_edit)
 
         # Star button
         star = "★" if word["is_mistake"] else "☆"
@@ -539,10 +579,10 @@ class DictionaryApp(QMainWindow):
 
         for w in words:
             self.word_layout.addWidget(
-                WordRow(w, self.hide_ru, self.hide_en, play_word, self._toggle_mistake, self._delete_word))
+                WordRow(w, self.hide_ru, self.hide_en, play_word, self._toggle_mistake, self._delete_word, self._edit_word))
             if w["is_mistake"]:
                 self.mist_layout.addWidget(
-                    WordRow(w, self.hide_ru, self.hide_en, play_word, self._toggle_mistake, self._delete_word))
+                    WordRow(w, self.hide_ru, self.hide_en, play_word, self._toggle_mistake, self._delete_word, self._edit_word))
 
         if not any(w["is_mistake"] for w in words):
             lbl = QLabel("No mistakes yet. Mark words with ☆ to track them here.")
@@ -561,6 +601,16 @@ class DictionaryApp(QMainWindow):
         self._load_words()
         self.status.setText("Word removed.")
         self.status.setStyleSheet("color: #888; font-size: 12px;")
+
+    def _edit_word(self, word):
+        dlg = EditDialog(word, self)
+        if dlg.exec():
+            new_en, new_ru, new_tr = dlg.get_data()
+            old_en = word["word_en"]
+            if new_en.strip().lower() != old_en:
+                new_tr = get_transcription(new_en.strip().lower())
+            self.db.update_word(word["id"], new_en, new_ru, new_tr)
+            self._load_words()
 
     def _add_word(self):
         raw = self.entry.text().strip()
