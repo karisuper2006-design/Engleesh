@@ -16,7 +16,7 @@ from PyQt6.QtGui import QFont, QPainter, QColor, QPainterPath
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLineEdit, QPushButton, QLabel, QTabWidget,
-    QScrollArea, QFrame, QDialog, QDialogButtonBox, QFormLayout,
+    QScrollArea, QFrame,
 )
 
 from deep_translator import GoogleTranslator
@@ -273,42 +273,18 @@ class ToggleSwitch(QWidget):
         p.end()
 
 
-class EditDialog(QDialog):
-    def __init__(self, word, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle("Редактировать слово")
-        self.setMinimumWidth(360)
-        form = QFormLayout(self)
-
-        self.en_edit = QLineEdit(word["word_en"])
-        self.ru_edit = QLineEdit(word["word_ru"])
-        self.tr_edit = QLineEdit(word.get("transcription", ""))
-
-        form.addRow("Английский:", self.en_edit)
-        form.addRow("Транскрипция:", self.tr_edit)
-        form.addRow("Русский:", self.ru_edit)
-
-        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        btns.accepted.connect(self.accept)
-        btns.rejected.connect(self.reject)
-        form.addRow(btns)
-
-    def get_data(self):
-        return self.en_edit.text(), self.ru_edit.text(), self.tr_edit.text()
-
-
 # ─── Word row ────────────────────────────────────────────────────────────────
 
 class WordRow(QFrame):
     def __init__(self, word, hide_ru, hide_en, on_play, on_toggle, on_delete, on_edit, parent=None):
         super().__init__(parent)
         self.word = word
+        self.on_edit = on_edit
+        self._selected = False
         self.setFrameShape(QFrame.Shape.NoFrame)
-        self.setStyleSheet(
-            "WordRow { background: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; }"
-            "WordRow:hover { background: #f0f4ff; border-color: #c0d0f0; }"
-        )
+        self._update_style()
         self.setFixedHeight(44)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 4, 14, 4)
@@ -320,32 +296,32 @@ class WordRow(QFrame):
 
         # English
         if hide_en:
-            layout.addWidget(HiddenLabel(en))
+            self._en_label = HiddenLabel(en)
         else:
-            lbl = QLabel(en)
-            lbl.setFont(QFont("Helvetica Neue", 14, QFont.Weight.DemiBold))
-            lbl.setStyleSheet("color: #1a1a2e;")
-            layout.addWidget(lbl)
+            self._en_label = QLabel(en)
+            self._en_label.setFont(QFont("Helvetica Neue", 14, QFont.Weight.DemiBold))
+            self._en_label.setStyleSheet("color: #1a1a2e;")
+        layout.addWidget(self._en_label)
 
         # Transcription
         if hide_en:
-            layout.addWidget(HiddenLabel(tr))
+            self._tr_label = HiddenLabel(tr)
         else:
-            lbl = QLabel(tr)
-            lbl.setFont(QFont("Helvetica Neue", 12))
-            lbl.setStyleSheet("color: #888;")
-            layout.addWidget(lbl)
+            self._tr_label = QLabel(tr)
+            self._tr_label.setFont(QFont("Helvetica Neue", 12))
+            self._tr_label.setStyleSheet("color: #888;")
+        layout.addWidget(self._tr_label)
 
         layout.addStretch(1)
 
         # Russian
         if hide_ru:
-            layout.addWidget(HiddenLabel(ru))
+            self._ru_label = HiddenLabel(ru)
         else:
-            lbl = QLabel(ru)
-            lbl.setFont(QFont("Helvetica Neue", 14))
-            lbl.setStyleSheet("color: #333;")
-            layout.addWidget(lbl)
+            self._ru_label = QLabel(ru)
+            self._ru_label.setFont(QFont("Helvetica Neue", 14))
+            self._ru_label.setStyleSheet("color: #333;")
+        layout.addWidget(self._ru_label)
 
         # Play button
         btn_play = QPushButton("🔊")
@@ -356,16 +332,6 @@ class WordRow(QFrame):
         )
         btn_play.clicked.connect(lambda: on_play(en))
         layout.addWidget(btn_play)
-
-        # Edit button
-        btn_edit = QPushButton("✏️")
-        btn_edit.setFixedSize(30, 30)
-        btn_edit.setStyleSheet(
-            "QPushButton { border: none; font-size: 14px; border-radius: 6px; }"
-            "QPushButton:hover { background: #e8f0fe; }"
-        )
-        btn_edit.clicked.connect(lambda: on_edit(word))
-        layout.addWidget(btn_edit)
 
         # Star button
         star = "★" if word["is_mistake"] else "☆"
@@ -388,6 +354,71 @@ class WordRow(QFrame):
         )
         btn_del.clicked.connect(lambda: on_delete(word["id"]))
         layout.addWidget(btn_del)
+
+    def _update_style(self):
+        if self._selected:
+            self.setStyleSheet(
+                "WordRow { background: #f0f7ff; border: 2px solid #3b82f6; border-radius: 8px; }")
+        else:
+            self.setStyleSheet(
+                "WordRow { background: #ffffff; border: 2px solid transparent; border-radius: 8px; }"
+                "WordRow:hover { background: #f0f4ff; border-color: #c0d0f0; }")
+
+    def mousePressEvent(self, event):
+        if self._selected:
+            pos = event.position()
+            if hasattr(self._en_label, 'text') and not isinstance(self._en_label, HiddenLabel):
+                if self._en_label.geometry().contains(self.mapFromParent(pos.toPoint() if hasattr(pos, 'toPoint') else pos)):
+                    self._start_edit(self._en_label, "en")
+                    return
+            if hasattr(self._ru_label, 'text') and not isinstance(self._ru_label, HiddenLabel):
+                if self._ru_label.geometry().contains(self.mapFromParent(pos.toPoint() if hasattr(pos, 'toPoint') else pos)):
+                    self._start_edit(self._ru_label, "ru")
+                    return
+        self._selected = not self._selected
+        self._update_style()
+        super().mousePressEvent(event)
+
+    def _start_edit(self, label, field):
+        edit = QLineEdit(label.text())
+        edit.setFont(label.font())
+        edit.setStyleSheet(
+            "QLineEdit { border: 2px solid #3b82f6; border-radius: 4px; padding: 2px 6px; "
+            "background: #fff; color: #1a1a2e; }")
+        edit.setMinimumWidth(label.width())
+        edit.editingFinished.connect(lambda: self._finish_edit(edit, label, field))
+        edit.returnPressed.connect(lambda: edit.clearFocus())
+        layout = self.layout()
+        idx = layout.indexOf(label)
+        layout.removeWidget(label)
+        label.hide()
+        layout.insertWidget(idx, edit)
+        edit.setFocus()
+        edit.selectAll()
+
+    def _finish_edit(self, edit, label, field):
+        new_val = edit.text().strip()
+        if not new_val:
+            edit.setText(label.text())
+            return
+        old_val = self.word[f"word_{field}"]
+        if new_val != old_val:
+            self.word[f"word_{field}"] = new_val.lower() if field == "en" else new_val
+            if field == "en":
+                self.word["transcription"] = get_transcription(new_val.lower()) or self.word.get("transcription", "")
+            self.on_edit(self.word)
+        layout = self.layout()
+        idx = layout.indexOf(edit)
+        layout.removeWidget(edit)
+        edit.deleteLater()
+        if field == "en":
+            label.setText(self.word["word_en"])
+            if not isinstance(self._tr_label, HiddenLabel):
+                self._tr_label.setText(self.word.get("transcription", "—") or "—")
+        else:
+            label.setText(self.word["word_ru"])
+        layout.insertWidget(idx, label)
+        label.show()
 
 
 # ─── Light theme stylesheet ─────────────────────────────────────────────────
@@ -599,14 +630,8 @@ class DictionaryApp(QMainWindow):
         self.status.setStyleSheet("color: #888; font-size: 12px;")
 
     def _edit_word(self, word):
-        dlg = EditDialog(word, self)
-        if dlg.exec():
-            new_en, new_ru, new_tr = dlg.get_data()
-            old_en = word["word_en"]
-            if new_en.strip().lower() != old_en:
-                new_tr = get_transcription(new_en.strip().lower())
-            self.db.update_word(word["id"], new_en, new_ru, new_tr)
-            self._load_words()
+        self.db.update_word(word["id"], word["word_en"], word["word_ru"], word.get("transcription", ""))
+        self._load_words()
 
     def _add_word(self):
         raw = self.entry.text().strip()

@@ -3,6 +3,7 @@ let words = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
 let hideRu = false;
 let hideEn = false;
 let currentTab = "all";
+let selectedRowId = null;
 
 // ─── Language detection ─────────────────────────────────────────────────────
 
@@ -116,6 +117,7 @@ function toggleMistake(id) {
 
 function deleteWord(id) {
     words = words.filter(w => w.id !== id);
+    if (selectedRowId === id) selectedRowId = null;
     save();
     render();
     const s = document.getElementById("status");
@@ -123,28 +125,48 @@ function deleteWord(id) {
     s.style.color = "#888";
 }
 
-async function editWord(id) {
+function selectRow(id) {
+    selectedRowId = selectedRowId === id ? null : id;
+    render();
+}
+
+function startEdit(el, id, field) {
     const w = words.find(w => w.id === id);
     if (!w) return;
 
-    const newEn = prompt("Английский:", w.word_en);
-    if (newEn === null) return;
-    const newRu = prompt("Русский:", w.word_ru);
-    if (newRu === null) return;
+    const val = field === "en" ? w.word_en : w.word_ru;
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "inline-input";
+    input.value = val;
+    input.style.width = field === "en" ? "160px" : "100%";
 
-    const oldEn = w.word_en;
-    w.word_en = newEn.trim().toLowerCase();
-    w.word_ru = newRu.trim();
+    const finish = async () => {
+        const newVal = input.value.trim();
+        if (newVal && newVal !== val) {
+            if (field === "en") {
+                w.word_en = newVal.toLowerCase();
+                w.transcription = await getTranscription(w.word_en);
+            } else {
+                w.word_ru = newVal;
+            }
+            save();
+            const s = document.getElementById("status");
+            s.textContent = `Обновлено: ${w.word_en} — ${w.word_ru}`;
+            s.style.color = "#27ae60";
+        }
+        render();
+    };
 
-    if (w.word_en !== oldEn) {
-        w.transcription = await getTranscription(w.word_en);
-    }
+    input.addEventListener("blur", finish);
+    input.addEventListener("keydown", e => {
+        if (e.key === "Enter") input.blur();
+        if (e.key === "Escape") { input.value = val; input.blur(); }
+    });
 
-    save();
-    render();
-    const s = document.getElementById("status");
-    s.textContent = `Обновлено: ${w.word_en} — ${w.word_ru}`;
-    s.style.color = "#27ae60";
+    el.replaceWith(input);
+    input.focus();
+    input.select();
 }
 
 function setMode(which, checked) {
@@ -184,34 +206,43 @@ function render() {
 
     for (const w of filtered) {
         const row = document.createElement("div");
-        row.className = "word-row";
+        row.className = "word-row" + (selectedRowId === w.id ? " selected" : "");
+        row.dataset.id = w.id;
+
+        const enEditable = !hideEn && selectedRowId === w.id;
+        const ruEditable = !hideRu && selectedRowId === w.id;
 
         const enText = hideEn
-            ? `<span class="hidden-cell" onclick="reveal(this,'${esc(w.word_en)}')">[ … ]</span>`
-            : esc(w.word_en);
+            ? `<span class="hidden-cell" onclick="event.stopPropagation(); reveal(this,'${esc(w.word_en)}')">[ … ]</span>`
+            : enEditable
+                ? `<span class="en editable" onclick="event.stopPropagation(); startEdit(this, ${w.id}, 'en')">${esc(w.word_en)}</span>`
+                : `<span class="en">${esc(w.word_en)}</span>`;
 
         const trText = hideEn
-            ? `<span class="hidden-cell" onclick="reveal(this,'${esc(w.transcription || "—")}')">[ … ]</span>`
-            : esc(w.transcription || "—");
+            ? `<span class="hidden-cell" onclick="event.stopPropagation(); reveal(this,'${esc(w.transcription || "—")}')">[ … ]</span>`
+            : `<span class="tr">${esc(w.transcription || "—")}</span>`;
 
         const ruText = hideRu
-            ? `<span class="hidden-cell" onclick="reveal(this,'${esc(w.word_ru)}')">[ … ]</span>`
-            : esc(w.word_ru);
+            ? `<span class="hidden-cell" onclick="event.stopPropagation(); reveal(this,'${esc(w.word_ru)}')">[ … ]</span>`
+            : ruEditable
+                ? `<span class="ru editable" onclick="event.stopPropagation(); startEdit(this, ${w.id}, 'ru')">${esc(w.word_ru)}</span>`
+                : `<span class="ru">${esc(w.word_ru)}</span>`;
 
         const starClass = w.is_mistake ? "btn-star active" : "btn-star";
         const starText = w.is_mistake ? "★" : "☆";
 
         row.innerHTML = `
-            <span class="en">${enText}</span>
-            <span class="tr">${trText}</span>
-            <span class="ru">${ruText}</span>
+            ${enText}
+            ${trText}
+            ${ruText}
             <span class="actions">
-                <button onclick="playWord('${esc(w.word_en)}')" title="Озвучка">🔊</button>
-                <button onclick="editWord(${w.id})" title="Редактировать">✏️</button>
-                <button class="${starClass}" onclick="toggleMistake(${w.id})" title="Отметить ошибку">${starText}</button>
-                <button class="btn-del" onclick="deleteWord(${w.id})" title="Удалить">✕</button>
+                <button onclick="event.stopPropagation(); playWord('${esc(w.word_en)}')" title="Озвучка">🔊</button>
+                <button class="${starClass}" onclick="event.stopPropagation(); toggleMistake(${w.id})" title="Отметить ошибку">${starText}</button>
+                <button class="btn-del" onclick="event.stopPropagation(); deleteWord(${w.id})" title="Удалить">✕</button>
             </span>
         `;
+
+        row.addEventListener("click", () => selectRow(w.id));
         list.appendChild(row);
     }
 }
