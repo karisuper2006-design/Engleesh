@@ -367,20 +367,20 @@ class WordRow(QFrame):
 
         btn_play = QPushButton()
         btn_play.setIcon(_make_play_icon())
-        btn_play.setFixedSize(34, 30)
-        btn_play.setIconSize(btn_play.size() - QSize(4, 4))
+        btn_play.setFixedSize(28, 28)
+        btn_play.setIconSize(QSize(18, 18))
         btn_play.setStyleSheet(
-            "QPushButton { border: none; border-radius: 6px; }"
+            "QPushButton { border: none; border-radius: 6px; color: #999; }"
             "QPushButton:hover { background: #e8f0fe; }")
         btn_play.clicked.connect(lambda: on_play(en))
         layout.addWidget(btn_play)
 
         star = "★" if word["is_mistake"] else "☆"
-        color = "#e6a817" if word["is_mistake"] else "#bbb"
+        color = "#e6a817" if word["is_mistake"] else "#999"
         btn_star = QPushButton(star)
-        btn_star.setFixedSize(30, 30)
+        btn_star.setFixedSize(28, 28)
         btn_star.setStyleSheet(
-            f"QPushButton {{ border: none; font-size: 18px; color: {color}; border-radius: 6px; }}"
+            f"QPushButton {{ border: none; font-size: 16px; color: {color}; border-radius: 6px; }}"
             "QPushButton:hover { background: #fff3cd; }")
         btn_star.clicked.connect(lambda: on_toggle(word["id"], word["is_mistake"]))
         layout.addWidget(btn_star)

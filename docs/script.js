@@ -53,6 +53,11 @@ function playWord(word) {
     const u = new SpeechSynthesisUtterance(word);
     u.lang = "en-US";
     u.rate = 0.9;
+    document.querySelectorAll(".btn-play.playing").forEach(b => b.classList.remove("playing"));
+    const btn = document.querySelector(`.btn-play[data-word="${CSS.escape(word)}"]`);
+    if (btn) btn.classList.add("playing");
+    u.onend = () => { if (btn) btn.classList.remove("playing"); };
+    u.onerror = () => { if (btn) btn.classList.remove("playing"); };
     window.speechSynthesis.speak(u);
 }
 
@@ -239,7 +244,7 @@ function render() {
             ${trText}
             ${ruText}
             <span class="actions">
-                <button onclick="event.stopPropagation(); playWord('${esc(w.word_en)}')" title="Озвучка"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></button>
+                <button class="btn-play" data-word="${esc(w.word_en)}" onclick="event.stopPropagation(); playWord('${esc(w.word_en)}')" title="Озвучка"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></button>
                 <button class="${starClass}" onclick="event.stopPropagation(); toggleMistake(${w.id})" title="Отметить ошибку">${starText}</button>
             </span>
         `;
