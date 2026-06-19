@@ -24,7 +24,7 @@ async function translate(text, from, to) {
         if (t.toUpperCase() === text.toUpperCase()) return text;
         return t;
     }
-    throw new Error("Translation failed");
+    throw new Error("Ошибка перевода");
 }
 
 // ─── Transcription (Free Dictionary API) ────────────────────────────────────
@@ -65,7 +65,7 @@ async function addWord() {
     const btn = document.getElementById("addBtn");
     const status = document.getElementById("status");
     btn.disabled = true;
-    status.textContent = "Looking up…";
+    status.textContent = "Поиск…";
     status.style.color = "#888";
 
     try {
@@ -83,7 +83,7 @@ async function addWord() {
 
         const exists = words.some(w => w.word_en === wordEn);
         if (exists) {
-            status.textContent = `«${wordEn}» already exists.`;
+            status.textContent = `«${wordEn}» уже существует.`;
             status.style.color = "#e67e22";
         } else {
             words.unshift({
@@ -95,12 +95,12 @@ async function addWord() {
             });
             save();
             render();
-            status.textContent = `Added: ${wordEn} — ${wordRu}  ${transcription || ""}`;
+            status.textContent = `Добавлено: ${wordEn} — ${wordRu}  ${transcription || ""}`;
             status.style.color = "#27ae60";
             input.value = "";
         }
     } catch (e) {
-        status.textContent = `Error: ${e.message}`;
+        status.textContent = `Ошибка: ${e.message}`;
         status.style.color = "#e74c3c";
     }
 
@@ -119,7 +119,7 @@ function deleteWord(id) {
     save();
     render();
     const s = document.getElementById("status");
-    s.textContent = "Word removed.";
+    s.textContent = "Слово удалено.";
     s.style.color = "#888";
 }
 
@@ -127,9 +127,9 @@ async function editWord(id) {
     const w = words.find(w => w.id === id);
     if (!w) return;
 
-    const newEn = prompt("English:", w.word_en);
+    const newEn = prompt("Английский:", w.word_en);
     if (newEn === null) return;
-    const newRu = prompt("Russian:", w.word_ru);
+    const newRu = prompt("Русский:", w.word_ru);
     if (newRu === null) return;
 
     const oldEn = w.word_en;
@@ -143,7 +143,7 @@ async function editWord(id) {
     save();
     render();
     const s = document.getElementById("status");
-    s.textContent = `Updated: ${w.word_en} — ${w.word_ru}`;
+    s.textContent = `Обновлено: ${w.word_en} — ${w.word_ru}`;
     s.style.color = "#27ae60";
 }
 
@@ -175,8 +175,8 @@ function render() {
     if (!filtered.length) {
         empty.classList.remove("hidden");
         empty.textContent = currentTab === "mistakes"
-            ? "No mistakes yet. Mark words with ☆ to track them here."
-            : "No words yet. Add your first word above!";
+            ? "Пока нет ошибок. Отмечайте слова звёздочкой ☆, чтобы они появились здесь."
+            : "Пока нет слов. Добавьте первое слово выше!";
         return;
     }
 
@@ -206,10 +206,10 @@ function render() {
             <span class="tr">${trText}</span>
             <span class="ru">${ruText}</span>
             <span class="actions">
-                <button onclick="playWord('${esc(w.word_en)}')" title="Play">🔊</button>
-                <button onclick="editWord(${w.id})" title="Edit">✏️</button>
-                <button class="${starClass}" onclick="toggleMistake(${w.id})" title="Toggle mistake">${starText}</button>
-                <button class="btn-del" onclick="deleteWord(${w.id})" title="Delete">✕</button>
+                <button onclick="playWord('${esc(w.word_en)}')" title="Озвучка">🔊</button>
+                <button onclick="editWord(${w.id})" title="Редактировать">✏️</button>
+                <button class="${starClass}" onclick="toggleMistake(${w.id})" title="Отметить ошибку">${starText}</button>
+                <button class="btn-del" onclick="deleteWord(${w.id})" title="Удалить">✕</button>
             </span>
         `;
         list.appendChild(row);

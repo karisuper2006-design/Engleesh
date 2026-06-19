@@ -23,12 +23,6 @@ header h1 {
     font-weight: 700;
 }
 
-.subtitle {
-    color: #888;
-    font-size: 14px;
-    margin-top: 2px;
-}
-
 .input-row {
     display: flex;
     gap: 10px;

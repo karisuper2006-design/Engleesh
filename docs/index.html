@@ -3,43 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Engleesh — Personal Dictionary</title>
+    <title>Engleesh</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
         <header>
             <h1>Engleesh</h1>
-            <p class="subtitle">Personal dictionary & trainer</p>
         </header>
 
         <div class="input-row">
-            <input type="text" id="wordInput" placeholder="Type a word in English or Russian…" autocomplete="off">
-            <button id="addBtn" onclick="addWord()">Add</button>
+            <input type="text" id="wordInput" placeholder="Введите слово на английском или русском…" autocomplete="off">
+            <button id="addBtn" onclick="addWord()">Добавить</button>
         </div>
 
         <div id="status" class="status"></div>
 
         <div class="mode-bar">
-            <span class="mode-label">Self-check:</span>
+            <span class="mode-label">Проверка:</span>
             <label><input type="checkbox" onchange="setMode('ru', this.checked)"><span class="toggle"></span>Скрыть перевод</label>
             <label><input type="checkbox" onchange="setMode('en', this.checked)"><span class="toggle"></span>Скрыть английский</label>
         </div>
 
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('all')">All words</button>
-            <button class="tab" onclick="switchTab('mistakes')">Mistakes</button>
+            <button class="tab active" onclick="switchTab('all')">Все слова</button>
+            <button class="tab" onclick="switchTab('mistakes')">Ошибки</button>
         </div>
 
         <div class="table-header">
-            <span class="col-en">English</span>
-            <span class="col-tr">Transcription</span>
-            <span class="col-ru">Russian</span>
+            <span class="col-en">Английский</span>
+            <span class="col-tr">Транскрипция</span>
+            <span class="col-ru">Русский</span>
             <span class="col-actions"></span>
         </div>
 
         <div id="wordList" class="word-list"></div>
-        <div id="emptyMsg" class="empty-msg">No words yet. Add your first word above!</div>
+        <div id="emptyMsg" class="empty-msg">Пока нет слов. Добавьте первое слово выше!</div>
     </div>
 
     <script src="script.js"></script>

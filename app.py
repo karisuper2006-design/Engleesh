@@ -276,7 +276,7 @@ class ToggleSwitch(QWidget):
 class EditDialog(QDialog):
     def __init__(self, word, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Edit word")
+        self.setWindowTitle("Редактировать слово")
         self.setMinimumWidth(360)
         form = QFormLayout(self)
 
@@ -284,9 +284,9 @@ class EditDialog(QDialog):
         self.ru_edit = QLineEdit(word["word_ru"])
         self.tr_edit = QLineEdit(word.get("transcription", ""))
 
-        form.addRow("English:", self.en_edit)
-        form.addRow("Transcription:", self.tr_edit)
-        form.addRow("Russian:", self.ru_edit)
+        form.addRow("Английский:", self.en_edit)
+        form.addRow("Транскрипция:", self.tr_edit)
+        form.addRow("Русский:", self.ru_edit)
 
         btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         btns.accepted.connect(self.accept)
@@ -444,7 +444,7 @@ class DictionaryApp(QMainWindow):
         self.hide_en = False
         self._lookup_thread = None
 
-        self.setWindowTitle("Engleesh — Personal Dictionary")
+        self.setWindowTitle("Engleesh")
         self.setMinimumSize(820, 520)
         self.resize(900, 600)
         self.setStyleSheet(LIGHT_STYLE)
@@ -461,10 +461,6 @@ class DictionaryApp(QMainWindow):
         title.setFont(QFont("Helvetica Neue", 26, QFont.Weight.Bold))
         title.setStyleSheet("color: #3b82f6;")
         hdr.addWidget(title)
-        sub = QLabel("  Personal dictionary & trainer")
-        sub.setStyleSheet("color: #888; font-size: 14px;")
-        sub.setAlignment(Qt.AlignmentFlag.AlignBottom)
-        hdr.addWidget(sub)
         hdr.addStretch()
         root.addLayout(hdr)
 
@@ -472,10 +468,10 @@ class DictionaryApp(QMainWindow):
         inp = QHBoxLayout()
         inp.setSpacing(8)
         self.entry = QLineEdit()
-        self.entry.setPlaceholderText("Type a word in English or Russian…")
+        self.entry.setPlaceholderText("Введите слово на английском или русском…")
         self.entry.returnPressed.connect(self._add_word)
         inp.addWidget(self.entry, 1)
-        self.add_btn = QPushButton("Add")
+        self.add_btn = QPushButton("Добавить")
         self.add_btn.setObjectName("addBtn")
         self.add_btn.setFixedWidth(90)
         self.add_btn.clicked.connect(self._add_word)
@@ -494,7 +490,7 @@ class DictionaryApp(QMainWindow):
         )
         mode_layout = QHBoxLayout(mode_frame)
         mode_layout.setContentsMargins(12, 6, 12, 6)
-        lbl = QLabel("Self-check:")
+        lbl = QLabel("Проверка:")
         lbl.setStyleSheet("color: #666; font-weight: bold; font-size: 12px;")
         mode_layout.addWidget(lbl)
         self._cb_hide_ru = ToggleSwitch("Скрыть перевод")
@@ -515,7 +511,7 @@ class DictionaryApp(QMainWindow):
         all_lay = QVBoxLayout(self.tab_all_widget)
         all_lay.setContentsMargins(0, 6, 0, 0)
         all_lay.setSpacing(0)
-        self.tabs.addTab(self.tab_all_widget, "All words")
+        self.tabs.addTab(self.tab_all_widget, "Все слова")
 
         self.word_scroll = QScrollArea()
         self.word_scroll.setWidgetResizable(True)
@@ -533,7 +529,7 @@ class DictionaryApp(QMainWindow):
         mist_lay = QVBoxLayout(self.tab_mist_widget)
         mist_lay.setContentsMargins(0, 6, 0, 0)
         mist_lay.setSpacing(0)
-        self.tabs.addTab(self.tab_mist_widget, "Mistakes")
+        self.tabs.addTab(self.tab_mist_widget, "Ошибки")
 
         self.mist_scroll = QScrollArea()
         self.mist_scroll.setWidgetResizable(True)
@@ -571,7 +567,7 @@ class DictionaryApp(QMainWindow):
 
         words = self.db.get_all_words()
         if not words:
-            lbl = QLabel("No words yet. Add your first word above!")
+            lbl = QLabel("Пока нет слов. Добавьте первое слово выше!")
             lbl.setStyleSheet("color: #aaa; font-size: 14px; padding: 30px;")
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.word_layout.addWidget(lbl)
@@ -585,7 +581,7 @@ class DictionaryApp(QMainWindow):
                     WordRow(w, self.hide_ru, self.hide_en, play_word, self._toggle_mistake, self._delete_word, self._edit_word))
 
         if not any(w["is_mistake"] for w in words):
-            lbl = QLabel("No mistakes yet. Mark words with ☆ to track them here.")
+            lbl = QLabel("Пока нет ошибок. Отмечайте слова звёздочкой ☆, чтобы они появились здесь.")
             lbl.setStyleSheet("color: #aaa; font-size: 14px; padding: 30px;")
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.mist_layout.addWidget(lbl)
@@ -599,7 +595,7 @@ class DictionaryApp(QMainWindow):
     def _delete_word(self, word_id):
         self.db.delete_word(word_id)
         self._load_words()
-        self.status.setText("Word removed.")
+        self.status.setText("Слово удалено.")
         self.status.setStyleSheet("color: #888; font-size: 12px;")
 
     def _edit_word(self, word):
@@ -616,7 +612,7 @@ class DictionaryApp(QMainWindow):
         raw = self.entry.text().strip()
         if not raw:
             return
-        self.status.setText("Looking up…")
+        self.status.setText("Поиск…")
         self.status.setStyleSheet("color: #888; font-size: 12px;")
         self.add_btn.setEnabled(False)
 
@@ -628,17 +624,17 @@ class DictionaryApp(QMainWindow):
     def _on_added(self, raw, w_en, w_ru, tr, added):
         self.add_btn.setEnabled(True)
         if added:
-            self.status.setText(f"Added: {w_en} — {w_ru}  {tr}")
+            self.status.setText(f"Добавлено: {w_en} — {w_ru}  {tr}")
             self.status.setStyleSheet("color: #27ae60; font-size: 12px;")
             self.entry.clear()
             self._load_words()
         else:
-            self.status.setText(f"«{w_en}» already exists.")
+            self.status.setText(f"«{w_en}» уже существует.")
             self.status.setStyleSheet("color: #e67e22; font-size: 12px;")
 
     def _on_error(self, msg):
         self.add_btn.setEnabled(True)
-        self.status.setText(f"Error: {msg}")
+        self.status.setText(f"Ошибка: {msg}")
         self.status.setStyleSheet("color: #e74c3c; font-size: 12px;")
 
     def closeEvent(self, event):
