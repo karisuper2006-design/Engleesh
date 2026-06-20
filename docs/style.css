@@ -104,7 +104,6 @@ input[type="checkbox"]:checked + .toggle::after { transform: translateX(20px); }
     touch-action: pan-y; user-select: none; flex-shrink: 0;
 }
 .word-row:hover {
-    background: #f0f4ff; border-color: #c0d0f0;
 }
 .word-row.selected {
     border-color: #3b82f6; background: #f0f7ff;
