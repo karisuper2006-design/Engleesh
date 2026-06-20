@@ -684,6 +684,21 @@ class DictionaryApp(QMainWindow):
         # Input row
         inp = QHBoxLayout()
         inp.setSpacing(8)
+        self.btn_menu = QPushButton("☰")
+        self.btn_menu.setFixedSize(36, 36)
+        self.btn_menu.setStyleSheet(
+            "QPushButton { background: #e8eaef; border: none; border-radius: 8px; font-size: 18px; color: #555; }"
+            "QPushButton:hover { background: #dde1e7; }")
+        self.btn_menu.clicked.connect(self._show_menu)
+        inp.addWidget(self.btn_menu)
+        self.btn_select = QPushButton("Выбрать")
+        self.btn_select.setFixedHeight(36)
+        self.btn_select.setStyleSheet(
+            "QPushButton { background: #3b82f6; color: white; border: none; border-radius: 8px; "
+            "padding: 0 16px; font-size: 13px; font-weight: bold; }"
+            "QPushButton:hover { background: #2563eb; }")
+        self.btn_select.clicked.connect(self._toggle_select_mode)
+        inp.addWidget(self.btn_select)
         self.entry = QLineEdit()
         self.entry.setPlaceholderText("Введите слово на английском или русском…")
         self.entry.returnPressed.connect(self._add_word)
@@ -710,32 +725,12 @@ class DictionaryApp(QMainWindow):
         self._cb_hide_ru = ToggleSwitch("Скрыть перевод")
         self._cb_hide_ru.toggled.connect(self._on_toggle_ru)
         mode_layout.addWidget(self._cb_hide_ru)
+        mode_layout.addStretch()
         self._cb_hide_en = ToggleSwitch("Скрыть английский")
         self._cb_hide_en.toggled.connect(self._on_toggle_en)
         mode_layout.addWidget(self._cb_hide_en)
         mode_layout.addStretch()
         root.addWidget(mode_frame)
-
-        # Toolbar
-        self.toolbar = QHBoxLayout()
-        self.toolbar.setSpacing(8)
-        self.btn_menu = QPushButton("☰")
-        self.btn_menu.setFixedSize(36, 36)
-        self.btn_menu.setStyleSheet(
-            "QPushButton { background: #e8eaef; border: none; border-radius: 18px; font-size: 18px; color: #555; }"
-            "QPushButton:hover { background: #dde1e7; }")
-        self.btn_menu.clicked.connect(self._show_menu)
-        self.toolbar.addWidget(self.btn_menu)
-        self.btn_select = QPushButton("Выбрать")
-        self.btn_select.setFixedHeight(36)
-        self.btn_select.setStyleSheet(
-            "QPushButton { background: #3b82f6; color: white; border: none; border-radius: 18px; "
-            "padding: 0 20px; font-size: 13px; font-weight: bold; }"
-            "QPushButton:hover { background: #2563eb; }")
-        self.btn_select.clicked.connect(self._toggle_select_mode)
-        self.toolbar.addWidget(self.btn_select)
-        self.toolbar.addStretch()
-        root.addLayout(self.toolbar)
 
         # Tabs
         self.tabs = QTabWidget()
@@ -826,11 +821,13 @@ class DictionaryApp(QMainWindow):
 
     def _on_tab_changed(self, index):
         if index == 2:
-            self.toolbar.setVisible(False)
+            self.btn_menu.setVisible(False)
+            self.btn_select.setVisible(False)
             self.current_folder_id = None
             self._load_folders()
         else:
-            self.toolbar.setVisible(True)
+            self.btn_menu.setVisible(True)
+            self.btn_select.setVisible(True)
             self.current_folder_id = None
             if self.select_mode:
                 self._exit_select_mode()
