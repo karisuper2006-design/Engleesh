@@ -893,9 +893,12 @@ class DictionaryApp(QMainWindow):
         from PyQt6.QtWidgets import QMenu
         menu = QMenu(self)
         create_act = menu.addAction("Создать папку")
+        add_act = menu.addAction("Добавить в папку")
         action = menu.exec(self.btn_menu.mapToGlobal(self.btn_menu.rect().bottomLeft()))
         if action == create_act:
             self._create_folder()
+        elif action == add_act:
+            self._add_to_folder()
 
     def _create_folder(self):
         from PyQt6.QtWidgets import QInputDialog
@@ -909,6 +912,28 @@ class DictionaryApp(QMainWindow):
         self.status.setText(f"Папка «{name.strip()}» создана.")
         self.status.setStyleSheet("color: #27ae60; font-size: 12px;")
         self.tabs.setCurrentIndex(2)
+
+    def _add_to_folder(self):
+        if not self.selected_word_ids:
+            self.status.setText("Сначала выберите слова.")
+            self.status.setStyleSheet("color: #e67e22; font-size: 12px;")
+            return
+        folders = self.db.get_folders()
+        if not folders:
+            self.status.setText("Сначала создайте папку.")
+            self.status.setStyleSheet("color: #e67e22; font-size: 12px;")
+            return
+        count = len(self.selected_word_ids)
+        from PyQt6.QtWidgets import QInputDialog
+        names = [f["name"] for f in folders]
+        name, ok = QInputDialog.getItem(self, "Добавить в папку", "Выберите папку:", names, 0, False)
+        if not ok:
+            return
+        folder = next(f for f in folders if f["name"] == name)
+        self.db.add_words_to_folder(folder["id"], list(self.selected_word_ids))
+        self._exit_select_mode()
+        self.status.setText(f"{count} слов(о) добавлено в «{name}».")
+        self.status.setStyleSheet("color: #27ae60; font-size: 12px;")
 
     # ── Folders ─────────────────────────────────────────────────────────
 

@@ -307,6 +307,73 @@ function removeFromFolder(folderId, wordId) {
     render();
 }
 
+// ─── Add to folder ──────────────────────────────────────────────────────────
+
+function showAddToFolder() {
+    document.getElementById("menuDropdown").classList.add("hidden");
+    if (!selectedWordIds.size) {
+        const s = document.getElementById("status");
+        s.textContent = "Сначала выберите слова.";
+        s.style.color = "#e67e22";
+        return;
+    }
+    if (!folders.length) {
+        const s = document.getElementById("status");
+        s.textContent = "Сначала создайте папку.";
+        s.style.color = "#e67e22";
+        return;
+    }
+    let picker = document.getElementById("folderPicker");
+    if (picker) picker.remove();
+    picker = document.createElement("div");
+    picker.id = "folderPicker";
+    picker.className = "folder-picker-overlay";
+    picker.innerHTML = `<div class="folder-picker">
+        <div class="folder-picker-title">Выберите папку</div>
+        <div class="folder-picker-list"></div>
+        <button class="folder-picker-cancel" onclick="closeFolderPicker()">Отмена</button>
+    </div>`;
+    document.body.appendChild(picker);
+    picker.addEventListener("click", (e) => { if (e.target === picker) closeFolderPicker(); });
+    const listEl = picker.querySelector(".folder-picker-list");
+    for (const f of folders) {
+        const count = (wordFolders[f.id] || []).length;
+        const item = document.createElement("div");
+        item.className = "folder-picker-item";
+        item.innerHTML = `
+            <div class="folder-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <span class="folder-name">${esc(f.name)}</span>
+            <span class="folder-count">${count} слов</span>
+        `;
+        item.addEventListener("click", () => addToFolder(f.id));
+        listEl.appendChild(item);
+    }
+}
+
+function addToFolder(folderId) {
+    const ids = [...selectedWordIds];
+    if (!wordFolders[folderId]) wordFolders[folderId] = [];
+    for (const wid of ids) {
+        if (!wordFolders[folderId].includes(wid)) {
+            wordFolders[folderId].push(wid);
+        }
+    }
+    saveFolders();
+    closeFolderPicker();
+    exitSelectMode();
+    const s = document.getElementById("status");
+    const f = folders.find(f => f.id === folderId);
+    s.textContent = `${ids.length} слов(о) добавлено в «${f ? f.name : ''}».`;
+    s.style.color = "#27ae60";
+}
+
+function closeFolderPicker() {
+    const picker = document.getElementById("folderPicker");
+    if (picker) picker.remove();
+}
+
 // ─── Render ─────────────────────────────────────────────────────────────────
 
 function render() {
@@ -456,9 +523,7 @@ function buildWordRow(list, w, inFolder, folderId) {
         if (!row.classList.contains("swiped")) selectRow(w.id);
     });
 
-    if (!inFolder) {
-        initSwipe(wrapper, row, w.id);
-    }
+    initSwipe(wrapper, row, w.id);
 
     const del = document.createElement("div");
     del.className = "swipe-delete";
