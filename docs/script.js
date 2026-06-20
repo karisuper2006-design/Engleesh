@@ -1,9 +1,18 @@
 const STORAGE_KEY = "engleesh_words";
+const FOLDERS_KEY = "engleesh_folders";
+const WORD_FOLDERS_KEY = "engleesh_word_folders";
+
 let words = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+let folders = JSON.parse(localStorage.getItem(FOLDERS_KEY) || "[]");
+let wordFolders = JSON.parse(localStorage.getItem(WORD_FOLDERS_KEY) || "{}");
+
 let hideRu = false;
 let hideEn = false;
 let currentTab = "all";
 let selectedRowId = null;
+let selectMode = false;
+let selectedWordIds = new Set();
+let currentFolderId = null;
 
 // ─── Language detection ─────────────────────────────────────────────────────
 
@@ -123,6 +132,10 @@ function toggleMistake(id) {
 function deleteWord(id) {
     words = words.filter(w => w.id !== id);
     if (selectedRowId === id) selectedRowId = null;
+    selectedWordIds.delete(id);
+    for (const fid in wordFolders) {
+        wordFolders[fid] = wordFolders[fid].filter(wid => wid !== id);
+    }
     save();
     render();
     const s = document.getElementById("status");
@@ -131,6 +144,15 @@ function deleteWord(id) {
 }
 
 function selectRow(id) {
+    if (selectMode) {
+        if (selectedWordIds.has(id)) {
+            selectedWordIds.delete(id);
+        } else {
+            selectedWordIds.add(id);
+        }
+        render();
+        return;
+    }
     selectedRowId = selectedRowId === id ? null : id;
     render();
 }
@@ -182,8 +204,106 @@ function setMode(which, checked) {
 
 function switchTab(tab) {
     currentTab = tab;
+    currentFolderId = null;
     document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-    document.querySelector(`.tab[onclick="switchTab('${tab}')"]`).classList.add("active");
+    const tabBtn = document.querySelector(`.tab[onclick="switchTab('${tab}')"]`);
+    if (tabBtn) tabBtn.classList.add("active");
+    const toolbar = document.getElementById("toolbar");
+    const tableHeader = document.getElementById("tableHeader");
+    if (tab === "folders") {
+        toolbar.classList.add("hidden");
+        tableHeader.classList.add("hidden");
+    } else {
+        toolbar.classList.remove("hidden");
+        tableHeader.classList.remove("hidden");
+    }
+    if (selectMode) exitSelectMode();
+    render();
+}
+
+// ─── Select mode ────────────────────────────────────────────────────────────
+
+function toggleSelectMode() {
+    if (selectMode) {
+        exitSelectMode();
+    } else {
+        selectMode = true;
+        selectedWordIds.clear();
+        document.getElementById("selectBtn").textContent = "Отмена";
+        document.getElementById("selectBtn").classList.add("active");
+        render();
+    }
+}
+
+function exitSelectMode() {
+    selectMode = false;
+    selectedWordIds.clear();
+    document.getElementById("selectBtn").textContent = "Выбрать";
+    document.getElementById("selectBtn").classList.remove("active");
+    render();
+}
+
+// ─── Menu ───────────────────────────────────────────────────────────────────
+
+function toggleMenu() {
+    const dd = document.getElementById("menuDropdown");
+    dd.classList.toggle("hidden");
+}
+
+document.addEventListener("click", (e) => {
+    if (!e.target.closest("#menuBtn") && !e.target.closest("#menuDropdown")) {
+        document.getElementById("menuDropdown").classList.add("hidden");
+    }
+});
+
+// ─── Folders ────────────────────────────────────────────────────────────────
+
+function saveFolders() {
+    localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
+    localStorage.setItem(WORD_FOLDERS_KEY, JSON.stringify(wordFolders));
+}
+
+function createFolder() {
+    document.getElementById("menuDropdown").classList.add("hidden");
+    const name = prompt("Название папки:");
+    if (!name || !name.trim()) return;
+
+    const id = Date.now();
+    folders.push({ id, name: name.trim() });
+    wordFolders[id] = [...selectedWordIds];
+    saveFolders();
+    exitSelectMode();
+    const s = document.getElementById("status");
+    s.textContent = `Папка «${name.trim()}» создана (${wordFolders[id].length} слов).`;
+    s.style.color = "#27ae60";
+    switchTab("folders");
+}
+
+function openFolder(id) {
+    currentFolderId = id;
+    currentTab = "folder_view";
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.getElementById("toolbar").classList.add("hidden");
+    document.getElementById("tableHeader").classList.remove("hidden");
+    render();
+}
+
+function backToFolders() {
+    currentFolderId = null;
+    switchTab("folders");
+}
+
+function deleteFolder(id) {
+    if (!confirm("Удалить папку? Слова не будут удалены.")) return;
+    folders = folders.filter(f => f.id !== id);
+    delete wordFolders[id];
+    saveFolders();
+    backToFolders();
+}
+
+function removeFromFolder(folderId, wordId) {
+    wordFolders[folderId] = (wordFolders[folderId] || []).filter(wid => wid !== wordId);
+    saveFolders();
     render();
 }
 
@@ -193,6 +313,16 @@ function render() {
     const list = document.getElementById("wordList");
     const empty = document.getElementById("emptyMsg");
     list.innerHTML = "";
+
+    if (currentTab === "folders" && !currentFolderId) {
+        renderFolders(list, empty);
+        return;
+    }
+
+    if (currentTab === "folder_view" && currentFolderId !== null) {
+        renderFolderView(list, empty);
+        return;
+    }
 
     let filtered = words;
     if (currentTab === "mistakes") {
@@ -210,68 +340,160 @@ function render() {
     empty.classList.add("hidden");
 
     for (const w of filtered) {
-        const wrapper = document.createElement("div");
-        wrapper.className = "word-row-wrapper";
+        buildWordRow(list, w, false);
+    }
+}
 
-        const row = document.createElement("div");
-        row.className = "word-row" + (selectedRowId === w.id ? " selected" : "");
-        row.dataset.id = w.id;
+function renderFolders(list, empty) {
+    if (!folders.length) {
+        empty.classList.remove("hidden");
+        empty.textContent = "Пока нет папок. Выберите слова и создайте папку.";
+        return;
+    }
+    empty.classList.add("hidden");
 
-        const enEditable = !hideEn && selectedRowId === w.id;
-        const ruEditable = !hideRu && selectedRowId === w.id;
-
-        const enText = hideEn
-            ? `<span class="hidden-cell" onclick="event.stopPropagation(); reveal(this,'${esc(w.word_en)}')">[ … ]</span>`
-            : enEditable
-                ? `<span class="en editable" onclick="event.stopPropagation(); startEdit(this, ${w.id}, 'en')">${esc(w.word_en)}</span>`
-                : `<span class="en">${esc(w.word_en)}</span>`;
-
-        const trText = hideEn
-            ? `<span class="hidden-cell" onclick="event.stopPropagation(); reveal(this,'${esc(w.transcription || "—")}')">[ … ]</span>`
-            : `<span class="tr">${esc(w.transcription || "—")}</span>`;
-
-        const ruText = hideRu
-            ? `<span class="hidden-cell" onclick="event.stopPropagation(); reveal(this,'${esc(w.word_ru)}')">[ … ]</span>`
-            : ruEditable
-                ? `<span class="ru editable" onclick="event.stopPropagation(); startEdit(this, ${w.id}, 'ru')">${esc(w.word_ru)}</span>`
-                : `<span class="ru">${esc(w.word_ru)}</span>`;
-
-        const starClass = w.is_mistake ? "btn-star active" : "btn-star";
-        const starText = w.is_mistake ? "★" : "☆";
-
-        row.innerHTML = `
-            ${enText}
-            ${trText}
-            ${ruText}
-            <span class="actions">
-                <button class="btn-play" data-word="${esc(w.word_en)}" onclick="event.stopPropagation(); playWord('${esc(w.word_en)}')" title="Озвучка"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></button>
-                <button class="${starClass}" onclick="event.stopPropagation(); toggleMistake(${w.id})" title="Отметить ошибку">${starText}</button>
-            </span>
+    for (const f of folders) {
+        const count = (wordFolders[f.id] || []).length;
+        const item = document.createElement("div");
+        item.className = "folder-item";
+        item.innerHTML = `
+            <div class="folder-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            </div>
+            <span class="folder-name">${esc(f.name)}</span>
+            <span class="folder-count">${count} слов</span>
         `;
+        item.addEventListener("click", () => openFolder(f.id));
+        list.appendChild(item);
+    }
+}
 
-        row.addEventListener("click", (e) => {
-            if (!row.classList.contains("swiped")) selectRow(w.id);
-        });
+function renderFolderView(list, empty) {
+    const folder = folders.find(f => f.id === currentFolderId);
+    if (!folder) { backToFolders(); return; }
 
+    const folderWordIds = wordFolders[currentFolderId] || [];
+    const folderWords = words.filter(w => folderWordIds.includes(w.id));
+
+    const backBtn = document.createElement("button");
+    backBtn.className = "folder-back";
+    backBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Назад`;
+    backBtn.addEventListener("click", backToFolders);
+    list.appendChild(backBtn);
+
+    const header = document.createElement("div");
+    header.className = "folder-header";
+    header.innerHTML = `
+        <span class="folder-title">${esc(folder.name)}</span>
+        <button class="folder-delete-btn" onclick="deleteFolder(${folder.id})">Удалить папку</button>
+    `;
+    list.appendChild(header);
+
+    if (!folderWords.length) {
+        empty.classList.remove("hidden");
+        empty.textContent = "Папка пуста.";
+        return;
+    }
+    empty.classList.add("hidden");
+
+    for (const w of folderWords) {
+        buildWordRow(list, w, true, currentFolderId);
+    }
+}
+
+function buildWordRow(list, w, inFolder, folderId) {
+    const wrapper = document.createElement("div");
+    wrapper.className = "word-row-wrapper";
+
+    const row = document.createElement("div");
+    row.className = "word-row" + (selectedRowId === w.id ? " selected" : "") + (selectMode ? " selectable" : "");
+    row.dataset.id = w.id;
+
+    let checkbox = "";
+    if (selectMode) {
+        const checked = selectedWordIds.has(w.id);
+        checkbox = `<div class="select-check ${checked ? 'checked' : ''}" onclick="event.stopPropagation(); selectWordCheck(${w.id})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>`;
+    }
+
+    const enEditable = !hideEn && selectedRowId === w.id;
+    const ruEditable = !hideRu && selectedRowId === w.id;
+
+    const enText = hideEn
+        ? `<span class="hidden-cell" onclick="event.stopPropagation(); reveal(this,'${esc(w.word_en)}')">[ … ]</span>`
+        : enEditable
+            ? `<span class="en editable" onclick="event.stopPropagation(); startEdit(this, ${w.id}, 'en')">${esc(w.word_en)}</span>`
+            : `<span class="en">${esc(w.word_en)}</span>`;
+
+    const trText = hideEn
+        ? `<span class="hidden-cell" onclick="event.stopPropagation(); reveal(this,'${esc(w.transcription || "—")}')">[ … ]</span>`
+        : `<span class="tr">${esc(w.transcription || "—")}</span>`;
+
+    const ruText = hideRu
+        ? `<span class="hidden-cell" onclick="event.stopPropagation(); reveal(this,'${esc(w.word_ru)}')">[ … ]</span>`
+        : ruEditable
+            ? `<span class="ru editable" onclick="event.stopPropagation(); startEdit(this, ${w.id}, 'ru')">${esc(w.word_ru)}</span>`
+            : `<span class="ru">${esc(w.word_ru)}</span>`;
+
+    const starClass = w.is_mistake ? "btn-star active" : "btn-star";
+    const starText = w.is_mistake ? "★" : "☆";
+
+    row.innerHTML = `
+        ${checkbox}
+        ${enText}
+        ${trText}
+        ${ruText}
+        <span class="actions">
+            <button class="btn-play" data-word="${esc(w.word_en)}" onclick="event.stopPropagation(); playWord('${esc(w.word_en)}')" title="Озвучка"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg></button>
+            <button class="${starClass}" onclick="event.stopPropagation(); toggleMistake(${w.id})" title="Отметить ошибку">${starText}</button>
+        </span>
+    `;
+
+    row.addEventListener("click", (e) => {
+        if (selectMode) {
+            selectWordCheck(w.id);
+            return;
+        }
+        if (!row.classList.contains("swiped")) selectRow(w.id);
+    });
+
+    if (!inFolder) {
         initSwipe(wrapper, row, w.id);
+    }
 
-        const del = document.createElement("div");
-        del.className = "swipe-delete";
-        del.innerHTML = "<svg width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='3 6 5 6 21 6'/><path d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/><line x1='10' y1='11' x2='10' y2='17'/><line x1='14' y1='11' x2='14' y2='17'/></svg>";
-        del.addEventListener("click", (e) => {
-            e.stopPropagation();
+    const del = document.createElement("div");
+    del.className = "swipe-delete";
+    del.innerHTML = "<svg width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='3 6 5 6 21 6'/><path d='M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2'/><line x1='10' y1='11' x2='10' y2='17'/><line x1='14' y1='11' x2='14' y2='17'/></svg>";
+    del.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (inFolder && folderId !== null) {
+            wrapper.style.transition = "opacity 0.3s ease, max-height 0.3s ease";
+            wrapper.style.opacity = "0";
+            wrapper.style.maxHeight = "0";
+            wrapper.style.marginBottom = "0";
+            wrapper.style.overflow = "hidden";
+            setTimeout(() => removeFromFolder(folderId, w.id), 300);
+        } else {
             wrapper.style.transition = "opacity 0.3s ease, max-height 0.3s ease";
             wrapper.style.opacity = "0";
             wrapper.style.maxHeight = "0";
             wrapper.style.marginBottom = "0";
             wrapper.style.overflow = "hidden";
             setTimeout(() => deleteWord(w.id), 300);
-        });
+        }
+    });
 
-        wrapper.appendChild(row);
-        wrapper.appendChild(del);
-        list.appendChild(wrapper);
+    wrapper.appendChild(row);
+    wrapper.appendChild(del);
+    list.appendChild(wrapper);
+}
+
+function selectWordCheck(id) {
+    if (selectedWordIds.has(id)) {
+        selectedWordIds.delete(id);
+    } else {
+        selectedWordIds.add(id);
     }
+    render();
 }
 
 // ─── Swipe ───────────────────────────────────────────────────────────────────

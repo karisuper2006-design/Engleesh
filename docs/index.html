@@ -24,12 +24,23 @@
             <label><input type="checkbox" onchange="setMode('en', this.checked)"><span class="toggle"></span>Скрыть английский</label>
         </div>
 
-        <div class="tabs">
-            <button class="tab active" onclick="switchTab('all')">Все слова</button>
-            <button class="tab" onclick="switchTab('mistakes')">Ошибки</button>
+        <div class="toolbar" id="toolbar">
+            <button class="toolbar-btn" id="menuBtn" onclick="toggleMenu()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <button class="toolbar-btn primary" id="selectBtn" onclick="toggleSelectMode()">Выбрать</button>
+            <div class="menu-dropdown hidden" id="menuDropdown">
+                <button onclick="createFolder()">Создать папку</button>
+            </div>
         </div>
 
-        <div class="table-header">
+        <div class="tabs" id="tabsBar">
+            <button class="tab active" onclick="switchTab('all')">Все слова</button>
+            <button class="tab" onclick="switchTab('mistakes')">Ошибки</button>
+            <button class="tab" onclick="switchTab('folders')">Папки</button>
+        </div>
+
+        <div class="table-header" id="tableHeader">
             <span class="col-en">Английский</span>
             <span class="col-tr">Транскрипция</span>
             <span class="col-ru">Русский</span>

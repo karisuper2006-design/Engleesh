@@ -366,6 +366,205 @@ input[type="checkbox"]:checked + .toggle::after {
 
 .empty-msg.hidden { display: none; }
 
+.toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    position: relative;
+}
+
+.toolbar-btn {
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    background: #e8eaef;
+    color: #555;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.toolbar-btn:hover { background: #dde1e7; }
+.toolbar-btn:active { transform: scale(0.97); }
+
+.toolbar-btn.primary {
+    background: #3b82f6;
+    color: #fff;
+}
+.toolbar-btn.primary:hover { background: #2563eb; }
+
+.toolbar-btn.active {
+    background: #2563eb;
+    color: #fff;
+}
+
+.menu-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    z-index: 100;
+    min-width: 180px;
+    overflow: hidden;
+    animation: menuAppear 0.15s ease;
+}
+
+.menu-dropdown.hidden { display: none; }
+
+.menu-dropdown button {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: #333;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.menu-dropdown button:hover { background: #f0f4ff; }
+
+@keyframes menuAppear {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.select-check {
+    width: 22px;
+    height: 22px;
+    border: 2px solid #ccc;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    margin-right: 8px;
+}
+
+.select-check.checked {
+    background: #3b82f6;
+    border-color: #3b82f6;
+}
+
+.select-check svg {
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.select-check.checked svg {
+    opacity: 1;
+}
+
+.word-row.selectable {
+    cursor: pointer;
+}
+
+.folder-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.folder-item {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.folder-item:hover {
+    background: #f0f4ff;
+    border-color: #c0d0f0;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(59,130,246,0.08);
+}
+
+.folder-icon {
+    width: 36px;
+    height: 36px;
+    background: #e8f0fe;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    color: #3b82f6;
+    flex-shrink: 0;
+}
+
+.folder-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1a1a2e;
+    flex: 1;
+}
+
+.folder-count {
+    font-size: 12px;
+    color: #888;
+}
+
+.folder-back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #3b82f6;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.folder-back:hover { background: #e8f0fe; }
+
+.folder-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.folder-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1a1a2e;
+}
+
+.folder-delete-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    color: #e74c3c;
+    background: #fdecea;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.folder-delete-btn:hover { background: #f5c6cb; }
+
 @media (max-width: 640px) {
     .mode-bar {
         gap: 10px;

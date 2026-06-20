@@ -56,6 +56,21 @@ class Database:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS folders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL
+            )
+        """)
+        self.conn.execute("""
+            CREATE TABLE IF NOT EXISTS word_folders (
+                word_id INTEGER NOT NULL,
+                folder_id INTEGER NOT NULL,
+                PRIMARY KEY (word_id, folder_id),
+                FOREIGN KEY (word_id) REFERENCES words(id) ON DELETE CASCADE,
+                FOREIGN KEY (folder_id) REFERENCES folders(id) ON DELETE CASCADE
+            )
+        """)
         self.conn.commit()
 
     def add_word(self, word_en, word_ru, transcription=""):
@@ -82,6 +97,41 @@ class Database:
 
     def delete_word(self, word_id):
         self.conn.execute("DELETE FROM words WHERE id=?", (word_id,))
+        self.conn.commit()
+
+    def create_folder(self, name):
+        self.conn.execute("INSERT INTO folders (name) VALUES (?)", (name.strip(),))
+        self.conn.commit()
+        return self.conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+
+    def get_folders(self):
+        return [dict(r) for r in self.conn.execute("SELECT id, name FROM folders ORDER BY id DESC").fetchall()]
+
+    def add_words_to_folder(self, folder_id, word_ids):
+        for wid in word_ids:
+            try:
+                self.conn.execute("INSERT OR IGNORE INTO word_folders (word_id, folder_id) VALUES (?, ?)", (wid, folder_id))
+            except Exception:
+                pass
+        self.conn.commit()
+
+    def get_folder_words(self, folder_id):
+        return [dict(r) for r in self.conn.execute(
+            "SELECT w.id, w.word_en, w.word_ru, w.transcription, w.is_mistake "
+            "FROM words w JOIN word_folders wf ON w.id = wf.word_id "
+            "WHERE wf.folder_id = ? ORDER BY w.id DESC", (folder_id,)
+        ).fetchall()]
+
+    def get_folder_word_count(self, folder_id):
+        return self.conn.execute("SELECT COUNT(*) FROM word_folders WHERE folder_id=?", (folder_id,)).fetchone()[0]
+
+    def remove_word_from_folder(self, folder_id, word_id):
+        self.conn.execute("DELETE FROM word_folders WHERE folder_id=? AND word_id=?", (folder_id, word_id))
+        self.conn.commit()
+
+    def delete_folder(self, folder_id):
+        self.conn.execute("DELETE FROM word_folders WHERE folder_id=?", (folder_id,))
+        self.conn.execute("DELETE FROM folders WHERE id=?", (folder_id,))
         self.conn.commit()
 
     def update_word(self, word_id, word_en, word_ru, transcription):
@@ -314,6 +364,8 @@ class ToggleSwitch(QWidget):
 # ─── Word row ────────────────────────────────────────────────────────────────
 
 class WordRow(QFrame):
+    selection_toggled = pyqtSignal(int)
+
     def __init__(self, word, hide_ru, hide_en, on_play, on_toggle, on_delete, on_edit, parent=None):
         super().__init__(parent)
         self.word = word
@@ -323,6 +375,8 @@ class WordRow(QFrame):
         self._swiped = False
         self._drag_start_x = 0
         self._dragging = False
+        self._selectable = False
+        self._checked = False
         self.setFrameShape(QFrame.Shape.NoFrame)
         self._update_style()
         self.setFixedHeight(44)
@@ -334,6 +388,8 @@ class WordRow(QFrame):
         layout = QHBoxLayout(self._content)
         layout.setContentsMargins(14, 4, 14, 4)
         layout.setSpacing(8)
+
+        self._check_btn = None
 
         en = word["word_en"]
         tr = word["transcription"] or "—"
@@ -398,6 +454,30 @@ class WordRow(QFrame):
 
         self._content.installEventFilter(self)
 
+    def set_selectable(self, selectable, checked=False):
+        self._selectable = selectable
+        self._checked = checked
+        layout = self._content.layout()
+        if selectable:
+            if self._check_btn is None:
+                self._check_btn = QPushButton()
+                self._check_btn.setFixedSize(22, 22)
+                self._check_btn.setStyleSheet(self._check_style())
+                self._check_btn.clicked.connect(lambda: self.selection_toggled.emit(self.word["id"]))
+                layout.insertWidget(0, self._check_btn)
+            self._check_btn.setStyleSheet(self._check_style())
+        elif self._check_btn is not None:
+            layout.removeWidget(self._check_btn)
+            self._check_btn.deleteLater()
+            self._check_btn = None
+
+    def _check_style(self):
+        if self._checked:
+            return ("QPushButton { background: #3b82f6; border: none; border-radius: 11px; }"
+                    "QPushButton:hover { background: #2563eb; }")
+        return ("QPushButton { background: #fff; border: 2px solid #ccc; border-radius: 11px; }"
+                "QPushButton:hover { border-color: #3b82f6; }")
+
     def _update_style(self):
         if self._selected:
             self.setStyleSheet(
@@ -417,6 +497,9 @@ class WordRow(QFrame):
     def eventFilter(self, obj, event):
         if obj == self._content:
             if event.type() == event.Type.MouseButtonPress and event.button() == Qt.MouseButton.LeftButton:
+                if self._selectable:
+                    self.selection_toggled.emit(self.word["id"])
+                    return True
                 self._drag_start_x = event.position().x()
                 self._dragging = True
                 return False
@@ -574,6 +657,9 @@ class DictionaryApp(QMainWindow):
         self.hide_ru = False
         self.hide_en = False
         self._lookup_thread = None
+        self.select_mode = False
+        self.selected_word_ids = set()
+        self.current_folder_id = None
 
         self.setWindowTitle("Engleesh")
         self.setMinimumSize(820, 520)
@@ -630,8 +716,30 @@ class DictionaryApp(QMainWindow):
         mode_layout.addStretch()
         root.addWidget(mode_frame)
 
+        # Toolbar
+        self.toolbar = QHBoxLayout()
+        self.toolbar.setSpacing(8)
+        self.btn_menu = QPushButton("☰")
+        self.btn_menu.setFixedSize(36, 36)
+        self.btn_menu.setStyleSheet(
+            "QPushButton { background: #e8eaef; border: none; border-radius: 18px; font-size: 18px; color: #555; }"
+            "QPushButton:hover { background: #dde1e7; }")
+        self.btn_menu.clicked.connect(self._show_menu)
+        self.toolbar.addWidget(self.btn_menu)
+        self.btn_select = QPushButton("Выбрать")
+        self.btn_select.setFixedHeight(36)
+        self.btn_select.setStyleSheet(
+            "QPushButton { background: #3b82f6; color: white; border: none; border-radius: 18px; "
+            "padding: 0 20px; font-size: 13px; font-weight: bold; }"
+            "QPushButton:hover { background: #2563eb; }")
+        self.btn_select.clicked.connect(self._toggle_select_mode)
+        self.toolbar.addWidget(self.btn_select)
+        self.toolbar.addStretch()
+        root.addLayout(self.toolbar)
+
         # Tabs
         self.tabs = QTabWidget()
+        self.tabs.currentChanged.connect(self._on_tab_changed)
         root.addWidget(self.tabs, 1)
 
         # Tab: All words
@@ -670,6 +778,40 @@ class DictionaryApp(QMainWindow):
         self.mist_scroll.setWidget(self.mist_container)
         mist_lay.addWidget(self.mist_scroll)
 
+        # Tab: Folders
+        self.tab_folders_widget = QWidget()
+        folders_lay = QVBoxLayout(self.tab_folders_widget)
+        folders_lay.setContentsMargins(0, 6, 0, 0)
+        folders_lay.setSpacing(0)
+        self.tabs.addTab(self.tab_folders_widget, "Папки")
+
+        self.folders_scroll = QScrollArea()
+        self.folders_scroll.setWidgetResizable(True)
+        self.folders_scroll.setStyleSheet("QScrollArea { border: none; background: #f5f6fa; }")
+        self.folders_container = QWidget()
+        self.folders_container.setStyleSheet("background: #f5f6fa;")
+        self.folders_layout = QVBoxLayout(self.folders_container)
+        self.folders_layout.setSpacing(6)
+        self.folders_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.folders_scroll.setWidget(self.folders_container)
+        folders_lay.addWidget(self.folders_scroll)
+
+        # Folder view (hidden by default, shown when inside a folder)
+        self.folder_view_widget = QWidget()
+        folder_view_lay = QVBoxLayout(self.folder_view_widget)
+        folder_view_lay.setContentsMargins(0, 6, 0, 0)
+        folder_view_lay.setSpacing(0)
+        self.folder_view_scroll = QScrollArea()
+        self.folder_view_scroll.setWidgetResizable(True)
+        self.folder_view_scroll.setStyleSheet("QScrollArea { border: none; background: #f5f6fa; }")
+        self.folder_view_container = QWidget()
+        self.folder_view_container.setStyleSheet("background: #f5f6fa;")
+        self.folder_view_layout = QVBoxLayout(self.folder_view_container)
+        self.folder_view_layout.setSpacing(6)
+        self.folder_view_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.folder_view_scroll.setWidget(self.folder_view_container)
+        folder_view_lay.addWidget(self.folder_view_scroll)
+
         self._load_words()
 
     # ── Helpers ──────────────────────────────────────────────────────────
@@ -682,22 +824,29 @@ class DictionaryApp(QMainWindow):
         self.hide_en = checked
         self._load_words()
 
+    def _on_tab_changed(self, index):
+        if index == 2:
+            self.toolbar.setVisible(False)
+            self.current_folder_id = None
+            self._load_folders()
+        else:
+            self.toolbar.setVisible(True)
+            self.current_folder_id = None
+            if self.select_mode:
+                self._exit_select_mode()
+
     def mousePressEvent(self, event):
         child = self.childAt(event.pos())
         while child:
             if isinstance(child, WordRow):
                 return super().mousePressEvent(event)
             child = child.parent()
-        for i in range(self.word_layout.count()):
-            w = self.word_layout.itemAt(i).widget()
-            if isinstance(w, WordRow) and w._selected:
-                w._selected = False
-                w._update_style()
-        for i in range(self.mist_layout.count()):
-            w = self.mist_layout.itemAt(i).widget()
-            if isinstance(w, WordRow) and w._selected:
-                w._selected = False
-                w._update_style()
+        for layout in [self.word_layout, self.mist_layout, self.folder_view_layout]:
+            for i in range(layout.count()):
+                w = layout.itemAt(i).widget()
+                if isinstance(w, WordRow) and w._selected:
+                    w._selected = False
+                    w._update_style()
         super().mousePressEvent(event)
 
     def _clear_layout(self, layout):
@@ -706,6 +855,136 @@ class DictionaryApp(QMainWindow):
             w = child.widget()
             if w:
                 w.deleteLater()
+
+    # ── Select mode ─────────────────────────────────────────────────────
+
+    def _toggle_select_mode(self):
+        if self.select_mode:
+            self._exit_select_mode()
+        else:
+            self.select_mode = True
+            self.selected_word_ids.clear()
+            self.btn_select.setText("Отмена")
+            self.btn_select.setStyleSheet(
+                "QPushButton { background: #2563eb; color: white; border: none; border-radius: 18px; "
+                "padding: 0 20px; font-size: 13px; font-weight: bold; }")
+            self._load_words()
+
+    def _exit_select_mode(self):
+        self.select_mode = False
+        self.selected_word_ids.clear()
+        self.btn_select.setText("Выбрать")
+        self.btn_select.setStyleSheet(
+            "QPushButton { background: #3b82f6; color: white; border: none; border-radius: 18px; "
+            "padding: 0 20px; font-size: 13px; font-weight: bold; }"
+            "QPushButton:hover { background: #2563eb; }")
+        self._load_words()
+
+    def _toggle_word_selection(self, word_id):
+        if word_id in self.selected_word_ids:
+            self.selected_word_ids.discard(word_id)
+        else:
+            self.selected_word_ids.add(word_id)
+        self._load_words()
+
+    # ── Menu ────────────────────────────────────────────────────────────
+
+    def _show_menu(self):
+        from PyQt6.QtWidgets import QMenu
+        menu = QMenu(self)
+        create_act = menu.addAction("Создать папку")
+        action = menu.exec(self.btn_menu.mapToGlobal(self.btn_menu.rect().bottomLeft()))
+        if action == create_act:
+            self._create_folder()
+
+    def _create_folder(self):
+        from PyQt6.QtWidgets import QInputDialog
+        name, ok = QInputDialog.getText(self, "Создать папку", "Название папки:")
+        if not ok or not name.strip():
+            return
+        folder_id = self.db.create_folder(name.strip())
+        if self.selected_word_ids:
+            self.db.add_words_to_folder(folder_id, list(self.selected_word_ids))
+        self._exit_select_mode()
+        self.status.setText(f"Папка «{name.strip()}» создана.")
+        self.status.setStyleSheet("color: #27ae60; font-size: 12px;")
+        self.tabs.setCurrentIndex(2)
+
+    # ── Folders ─────────────────────────────────────────────────────────
+
+    def _load_folders(self):
+        self._clear_layout(self.folders_layout)
+        folders = self.db.get_folders()
+        if not folders:
+            lbl = QLabel("Пока нет папок. Выберите слова и создайте папку.")
+            lbl.setStyleSheet("color: #aaa; font-size: 14px; padding: 30px;")
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.folders_layout.addWidget(lbl)
+            return
+        for f in folders:
+            count = self.db.get_folder_word_count(f["id"])
+            item = QFrame()
+            item.setFrameShape(QFrame.Shape.NoFrame)
+            item.setStyleSheet(
+                "QFrame { background: #fff; border: 1px solid #e0e0e0; border-radius: 8px; }"
+                "QFrame:hover { background: #f0f4ff; border-color: #c0d0f0; }")
+            item.setFixedHeight(52)
+            item.setCursor(Qt.CursorShape.PointingHandCursor)
+            lay = QHBoxLayout(item)
+            lay.setContentsMargins(14, 8, 14, 8)
+            icon_lbl = QLabel("📁")
+            icon_lbl.setFont(QFont("Helvetica Neue", 18))
+            lay.addWidget(icon_lbl)
+            name_lbl = QLabel(f["name"])
+            name_lbl.setFont(QFont("Helvetica Neue", 14, QFont.Weight.DemiBold))
+            name_lbl.setStyleSheet("color: #1a1a2e;")
+            lay.addWidget(name_lbl, 1)
+            count_lbl = QLabel(f"{count} слов")
+            count_lbl.setStyleSheet("color: #888; font-size: 12px;")
+            lay.addWidget(count_lbl)
+            fid = f["id"]
+            item.mousePressEvent = lambda e, fid=fid: self._open_folder(fid)
+            self.folders_layout.addWidget(item)
+
+    def _open_folder(self, folder_id):
+        self.current_folder_id = folder_id
+        self._clear_layout(self.folder_view_layout)
+        self.tabs.addTab(self.folder_view_widget, "← Назад")
+        self.tabs.setCurrentWidget(self.folder_view_widget)
+        folder = next((f for f in self.db.get_folders() if f["id"] == folder_id), None)
+        if not folder:
+            return
+        back_btn = QPushButton("← Назад к папкам")
+        back_btn.setStyleSheet(
+            "QPushButton { background: none; border: none; color: #3b82f6; font-weight: bold; "
+            "font-size: 13px; text-align: left; padding: 8px 14px; }"
+            "QPushButton:hover { background: #e8f0fe; border-radius: 6px; }")
+        back_btn.clicked.connect(self._back_to_folders)
+        self.folder_view_layout.addWidget(back_btn)
+        title_lbl = QLabel(folder["name"])
+        title_lbl.setFont(QFont("Helvetica Neue", 16, QFont.Weight.Bold))
+        title_lbl.setStyleSheet("color: #1a1a2e; padding: 4px 14px;")
+        self.folder_view_layout.addWidget(title_lbl)
+        words = self.db.get_folder_words(folder_id)
+        if not words:
+            lbl = QLabel("Папка пуста.")
+            lbl.setStyleSheet("color: #aaa; font-size: 14px; padding: 30px;")
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.folder_view_layout.addWidget(lbl)
+        else:
+            for w in words:
+                row = WordRow(w, self.hide_ru, self.hide_en, play_word,
+                              self._toggle_mistake, self._delete_word, self._edit_word)
+                self.folder_view_layout.addWidget(row)
+
+    def _back_to_folders(self):
+        idx = self.tabs.indexOf(self.folder_view_widget)
+        if idx >= 0:
+            self.tabs.removeTab(idx)
+        self.current_folder_id = None
+        self.tabs.setCurrentIndex(2)
+
+    # ── Load words ──────────────────────────────────────────────────────
 
     def _load_words(self):
         self._clear_layout(self.word_layout)
@@ -720,11 +999,19 @@ class DictionaryApp(QMainWindow):
             return
 
         for w in words:
-            self.word_layout.addWidget(
-                WordRow(w, self.hide_ru, self.hide_en, play_word, self._toggle_mistake, self._delete_word, self._edit_word))
+            row = WordRow(w, self.hide_ru, self.hide_en, play_word,
+                          self._toggle_mistake, self._delete_word, self._edit_word)
+            if self.select_mode:
+                row.set_selectable(True, w["id"] in self.selected_word_ids)
+                row.selection_toggled.connect(self._toggle_word_selection)
+            self.word_layout.addWidget(row)
             if w["is_mistake"]:
-                self.mist_layout.addWidget(
-                    WordRow(w, self.hide_ru, self.hide_en, play_word, self._toggle_mistake, self._delete_word, self._edit_word))
+                mist_row = WordRow(w, self.hide_ru, self.hide_en, play_word,
+                                   self._toggle_mistake, self._delete_word, self._edit_word)
+                if self.select_mode:
+                    mist_row.set_selectable(True, w["id"] in self.selected_word_ids)
+                    mist_row.selection_toggled.connect(self._toggle_word_selection)
+                self.mist_layout.addWidget(mist_row)
 
         if not any(w["is_mistake"] for w in words):
             lbl = QLabel("Пока нет ошибок. Отмечайте слова звёздочкой ☆, чтобы они появились здесь.")
