@@ -105,11 +105,9 @@ input[type="checkbox"]:checked + .toggle::after { transform: translateX(18px); }
 }
 .word-row:hover {
     background: #f0f4ff; border-color: #c0d0f0;
-    transform: translateY(-1px); box-shadow: 0 2px 8px rgba(59,130,246,0.08);
 }
 .word-row.selected {
     border-color: #3b82f6; background: #f0f7ff;
-    box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
 }
 
 .swipe-delete {
@@ -294,16 +292,21 @@ input[type="checkbox"]:checked + .toggle::after { transform: translateX(18px); }
     .col-en { width: 120px; }
     .tabs { flex-wrap: wrap; }
     .word-row-wrapper {
-        height: 44px;
-        min-height: 44px;
-        max-height: 44px;
+        height: 42px;
+        min-height: 42px;
+        max-height: 42px;
+        overflow: hidden;
     }
     .word-row {
-        height: 44px;
-        min-height: 44px;
-        max-height: 44px;
-        padding: 8px 12px;
+        height: 42px;
+        min-height: 42px;
+        max-height: 42px;
+        padding: 0 10px;
+        border-width: 1px;
         overflow: hidden;
+    }
+    .word-row.selected {
+        border-width: 1px;
     }
     .word-row .en {
         width: 120px;
