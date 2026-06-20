@@ -87,6 +87,7 @@ input[type="checkbox"]:checked + .toggle::after { transform: translateX(18px); }
 .word-row-wrapper {
     position: relative; border-radius: 8px;
     overflow: hidden; animation: rowAppear 0.3s ease;
+    flex-shrink: 0;
 }
 
 @keyframes rowAppear {
@@ -100,7 +101,7 @@ input[type="checkbox"]:checked + .toggle::after { transform: translateX(18px); }
     transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
                 box-shadow 0.25s ease, border-color 0.25s ease, background 0.25s ease;
     cursor: default; position: relative; z-index: 2;
-    touch-action: pan-y; user-select: none;
+    touch-action: pan-y; user-select: none; flex-shrink: 0;
 }
 .word-row:hover {
     background: #f0f4ff; border-color: #c0d0f0;
@@ -291,9 +292,12 @@ input[type="checkbox"]:checked + .toggle::after { transform: translateX(18px); }
     .col-tr { display: none; }
     .word-row .tr { display: none; }
     .col-en { width: 120px; }
-    .word-row .en { width: 120px; font-size: 14px; }
-    .word-row .ru { font-size: 14px; }
     .tabs { flex-wrap: wrap; }
+    .word-row-wrapper {
+        height: 44px;
+        min-height: 44px;
+        max-height: 44px;
+    }
     .word-row {
         height: 44px;
         min-height: 44px;
@@ -301,12 +305,21 @@ input[type="checkbox"]:checked + .toggle::after { transform: translateX(18px); }
         padding: 8px 12px;
         overflow: hidden;
     }
-    .word-row .en,
+    .word-row .en {
+        width: 120px;
+        min-width: 120px;
+        max-width: 120px;
+        font-size: 14px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
     .word-row .ru {
+        font-size: 14px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
     }
     .word-row .actions { width: 50px; min-width: 50px; }
-    .word-row-wrapper { min-height: 44px; }
+    .select-check { width: 20px; height: 20px; min-width: 20px; }
 }
