@@ -179,11 +179,12 @@ input[type="checkbox"]:checked + .toggle::after { transform: translateX(20px); }
     display: flex; align-items: center; gap: 8px;
     margin-bottom: 8px; position: relative;
 }
+.toolbar-spacer { flex: 1; }
 .toolbar-btn {
-    padding: 8px 18px; font-size: 14px; font-weight: 600;
+    padding: 6px 14px; font-size: 13px; font-weight: 600;
     background: #e8eaef; color: #555; border: none; border-radius: 8px;
     cursor: pointer; transition: all 0.2s ease;
-    display: flex; align-items: center; gap: 6px; white-space: nowrap;
+    display: flex; align-items: center; gap: 5px; white-space: nowrap;
 }
 .toolbar-btn:hover { background: #dde1e7; }
 .toolbar-btn:active { transform: scale(0.97); }

@@ -208,16 +208,13 @@ function switchTab(tab) {
     document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
     const tabBtn = document.querySelector(`.tab[onclick="switchTab('${tab}')"]`);
     if (tabBtn) tabBtn.classList.add("active");
-    const menuBtn = document.getElementById("menuBtn");
-    const selectBtn = document.getElementById("selectBtn");
+    const toolbar = document.getElementById("toolbar");
     const tableHeader = document.getElementById("tableHeader");
     if (tab === "folders") {
-        menuBtn.classList.add("hidden");
-        selectBtn.classList.add("hidden");
+        toolbar.classList.add("hidden");
         tableHeader.classList.add("hidden");
     } else {
-        menuBtn.classList.remove("hidden");
-        selectBtn.classList.remove("hidden");
+        toolbar.classList.remove("hidden");
         tableHeader.classList.remove("hidden");
     }
     if (selectMode) exitSelectMode();
@@ -286,8 +283,7 @@ function openFolder(id) {
     currentFolderId = id;
     currentTab = "folder_view";
     document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
-    document.getElementById("menuBtn").classList.add("hidden");
-    document.getElementById("selectBtn").classList.add("hidden");
+    document.getElementById("toolbar").classList.add("hidden");
     document.getElementById("tableHeader").classList.remove("hidden");
     render();
 }
