@@ -766,7 +766,7 @@ class DictionaryApp(QMainWindow):
         mist_lay = QVBoxLayout(self.tab_mist_widget)
         mist_lay.setContentsMargins(0, 6, 0, 0)
         mist_lay.setSpacing(0)
-        self.tabs.addTab(self.tab_mist_widget, "Ошибки")
+        self.tabs.addTab(self.tab_mist_widget, "Избранное")
 
         self.mist_scroll = QScrollArea()
         self.mist_scroll.setWidgetResizable(True)
@@ -1040,7 +1040,7 @@ class DictionaryApp(QMainWindow):
                 self.mist_layout.addWidget(mist_row)
 
         if not any(w["is_mistake"] for w in words):
-            lbl = QLabel("Пока нет ошибок. Отмечайте слова звёздочкой ☆, чтобы они появились здесь.")
+            lbl = QLabel("Пока нет избранного. Отмечайте слова звёздочкой ☆, чтобы они появились здесь.")
             lbl.setStyleSheet("color: #aaa; font-size: 14px; padding: 30px;")
             lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.mist_layout.addWidget(lbl)

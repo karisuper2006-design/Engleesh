@@ -399,7 +399,7 @@ function render() {
     if (!filtered.length) {
         empty.classList.remove("hidden");
         empty.textContent = currentTab === "mistakes"
-            ? "Пока нет ошибок. Отмечайте слова звёздочкой ☆, чтобы они появились здесь."
+            ? "Пока нет избранного. Отмечайте слова звёздочкой ☆, чтобы они появились здесь."
             : "Пока нет слов. Добавьте первое слово выше!";
         return;
     }
